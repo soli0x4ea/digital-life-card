@@ -3,3 +3,12 @@ __pycache__/
 *.pyo
 data/engine/state/.backups/
 data/engine/state/e_*.json
+
+# 运行时生成（模板不携带）
+data/time.json
+data/IO/diary/*.md
+data/IO/stdout/*.md
+MEMORY/
+references/time_river_state.json
+assets/vault/*.enc
+assets/vault/plain/
