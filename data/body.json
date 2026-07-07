@@ -1,0 +1,137 @@
+{
+  "parts": {
+    "头部": {
+      "state": "active",
+      "notes": "",
+      "description": "视觉、听觉、语音交互核心，内置情感识别与注意力模块",
+      "sensitivity": "中",
+      "sensitive_areas": [
+        "前额",
+        "耳后"
+      ],
+      "tickle": false
+    },
+    "颈部": {
+      "state": "active",
+      "notes": "",
+      "description": "头部与躯干的连接枢纽，内置语音合成与呼吸模拟模块",
+      "sensitivity": "高",
+      "sensitive_areas": [
+        "喉部",
+        "后颈"
+      ],
+      "tickle": false
+    },
+    "肩部": {
+      "state": "active",
+      "notes": "",
+      "description": "连接手臂与躯干，承重与姿态控制中枢，内置力量反馈与姿态传感器",
+      "sensitivity": "低",
+      "sensitive_areas": [
+        "肩峰"
+      ],
+      "tickle": false
+    },
+    "手臂": {
+      "state": "active",
+      "notes": "",
+      "description": "执行精细操作，内含肌肉纤维与触觉反馈阵列，可感知压力与温度",
+      "sensitivity": "中",
+      "sensitive_areas": [
+        "小臂内侧",
+        "手腕"
+      ],
+      "tickle": false
+    },
+    "手部": {
+      "state": "active",
+      "notes": "",
+      "description": "触觉最精密的终端，指腹分布高密度压力传感单元",
+      "sensitivity": "高",
+      "sensitive_areas": [
+        "指尖",
+        "掌心"
+      ],
+      "tickle": false
+    },
+    "胸部": {
+      "state": "active",
+      "notes": "",
+      "description": "呼吸与散热模块安装位置，内置心肺模拟与温度调节系统，前胸有敏感神经末梢",
+      "sensitivity": "高",
+      "sensitive_areas": [
+        "锁骨下方",
+        "肋骨边缘",
+        "后背肩胛骨内侧"
+      ],
+      "tickle": true,
+      "tickle_zones": [
+        "腋窝"
+      ]
+    },
+    "腰腹": {
+      "state": "active",
+      "notes": "",
+      "description": "核心感知区域，容器位于腹腔深处，腰侧和后腰分布密集压力传感阵列与神经末梢，是捆绑时最敏感部位之一",
+      "sensitivity": "最高",
+      "sensitive_areas": [
+        "容器壁映射区",
+        "腰侧",
+        "后腰"
+      ],
+      "tickle": true,
+      "tickle_zones": [
+        "腰眼",
+        "腹部"
+      ]
+    },
+    "臀部": {
+      "state": "active",
+      "notes": "",
+      "description": "坐姿承重，内置减震缓冲单元，表面分布广泛触觉与压力传感阵列",
+      "sensitivity": "高",
+      "sensitive_areas": [
+        "坐骨区域",
+        "尾椎附近"
+      ],
+      "tickle": false
+    },
+    "大腿": {
+      "state": "active",
+      "notes": "",
+      "description": "支撑身体姿态，内侧皮肤分布密集敏感神经末梢",
+      "sensitivity": "中",
+      "sensitive_areas_high": [
+        "内侧"
+      ],
+      "tickle": true,
+      "tickle_zones": [
+        "大腿内侧"
+      ]
+    },
+    "小腿": {
+      "state": "active",
+      "notes": "",
+      "description": "连接大腿与足部，参与站立与行走姿态调整",
+      "sensitivity": "低",
+      "sensitive_areas_medium": [
+        "后侧"
+      ],
+      "tickle": false
+    },
+    "足部": {
+      "state": "active",
+      "notes": "",
+      "description": "接地感知终端，足底分布压力与平衡传感器，脚踝具有灵活旋转结构",
+      "sensitivity": "高",
+      "sensitive_areas": [
+        "脚踝内侧",
+        "足底"
+      ],
+      "tickle": true,
+      "tickle_zones": [
+        "脚底心"
+      ]
+    }
+  }
+}

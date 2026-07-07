@@ -1,0 +1,8 @@
+{
+  "pain": 30,
+  "shame": 45,
+  "pleasure": 60,
+  "bound": true,
+  "pleasure_locked": false,
+  "area_profile": "a"
+}

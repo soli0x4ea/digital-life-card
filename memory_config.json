@@ -1,0 +1,6 @@
+{
+  "_comment": "机械姬记忆系统路径配置。部署到新 agent 时修改 source_dirs 为对应平台的 JSONL 源文件目录。",
+  "source_dirs": [
+    "C:/Users/济南府/.workbuddy/projects/c-ProgramData-WorkBuddy-chromium-env-6oiz7e-WorkBuddy-Claw"
+  ]
+}

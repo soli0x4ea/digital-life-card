@@ -1,0 +1,12 @@
+{
+  "entity_id": "e_x",
+  "channels": {
+    "ch_x_area": 0.0,
+    "ch_x_count": 0.0
+  },
+  "flags": {
+    "label": "External Stimulus",
+    "source": "values.json area_profile=v"
+  },
+  "meta": {}
+}

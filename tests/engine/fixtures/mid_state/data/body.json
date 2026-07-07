@@ -1,0 +1,59 @@
+{
+  "parts": {
+    "大腿": {
+      "state": "active",
+      "notes": "",
+      "description": "zone 1"
+    },
+    "头部": {
+      "state": "active",
+      "notes": "",
+      "description": "zone 2"
+    },
+    "小腿": {
+      "state": "broken",
+      "notes": "",
+      "description": "zone 3"
+    },
+    "手臂": {
+      "state": "numb",
+      "notes": "",
+      "description": "zone 4"
+    },
+    "手部": {
+      "state": "active",
+      "notes": "",
+      "description": "zone 5"
+    },
+    "肩部": {
+      "state": "active",
+      "notes": "",
+      "description": "zone 6"
+    },
+    "胸部": {
+      "state": "active",
+      "notes": "",
+      "description": "zone 7"
+    },
+    "腰腹": {
+      "state": "active",
+      "notes": "",
+      "description": "zone 8"
+    },
+    "臀部": {
+      "state": "active",
+      "notes": "",
+      "description": "zone 9"
+    },
+    "足部": {
+      "state": "active",
+      "notes": "",
+      "description": "zone 10"
+    },
+    "颈部": {
+      "state": "active",
+      "notes": "",
+      "description": "zone 11"
+    }
+  }
+}

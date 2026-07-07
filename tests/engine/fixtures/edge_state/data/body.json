@@ -1,0 +1,37 @@
+{
+  "parts": {
+    "大腿": {
+      "state": "active"
+    },
+    "头部": {
+      "state": "active"
+    },
+    "小腿": {
+      "state": "active"
+    },
+    "手臂": {
+      "state": "active"
+    },
+    "手部": {
+      "state": "active"
+    },
+    "肩部": {
+      "state": "active"
+    },
+    "胸部": {
+      "state": "active"
+    },
+    "腰腹": {
+      "state": "active"
+    },
+    "臀部": {
+      "state": "active"
+    },
+    "足部": {
+      "state": "active"
+    },
+    "颈部": {
+      "state": "active"
+    }
+  }
+}

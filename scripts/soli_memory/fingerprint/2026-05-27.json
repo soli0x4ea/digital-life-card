@@ -1,0 +1,34 @@
+{
+  "date": "2026-05-27",
+  "generated_at": "2026-05-28 13:13",
+  "data_corpus": {
+    "days": 0,
+    "messages": 0
+  },
+  "emoji_top20": {},
+  "message_length_distribution": {
+    "short_pct": 0.0,
+    "mid_pct": 0.0,
+    "long_pct": 0.0,
+    "xl_pct": 0.0,
+    "total": 0
+  },
+  "interaction_modes": {
+    "关怀": 0,
+    "挑逗": 0,
+    "夸奖": 0,
+    "指令": 0,
+    "求知": 0,
+    "邀约": 0
+  },
+  "addressing": {
+    "你": 0,
+    "soli": 0,
+    "Soli": 0,
+    "奴婢": 0,
+    "宝宝": 0
+  },
+  "topic_stability": {},
+  "dimensions": [],
+  "one_liner": "0条消息 / ⚪单极 / 关怀0次:指令0次 / 0.0%碎片短句"
+}

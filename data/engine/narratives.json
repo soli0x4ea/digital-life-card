@@ -1,0 +1,73 @@
+{
+  "description": "事件叙事文本库。所有文本为白板占位，可在 Phase 4+ 替换为实际叙事。",
+  "version": "1.0",
+  "meta": {
+    "toggle": "enabled",
+    "note": "设置 toggle 为 'disabled' 可一键关闭所有事件文本输出"
+  },
+  "events": {
+    "ev_g_a_high": {
+      "label": "Metric A Warning",
+      "severity": "warning",
+      "texts": {
+        "mild":    "[白板] Metric A 达到高位，系统标记警告。",
+        "medium":  "[白板] Metric A 持续攀升，建议关注。",
+        "intense": "[白板] Metric A 接近临界点，即将触发保护机制。"
+      }
+    },
+    "ev_g_a_max": {
+      "label": "Metric A Critical",
+      "severity": "critical",
+      "texts": {
+        "mild":    "[白板] Metric A 达到上限。系统执行截断保护。",
+        "medium":  "[白板] Metric A 临界事件触发。记录日志。",
+        "intense": "[白板] Metric A 溢出保护启动。相关通道截断至安全范围。"
+      }
+    },
+    "ev_g_s_high": {
+      "label": "Metric S Warning",
+      "severity": "warning",
+      "texts": {
+        "mild":    "[白板] Metric S 达到高位，系统记录观测点。",
+        "medium":  "[白板] Metric S 持续上升，接近阈值。",
+        "intense": "[白板] Metric S 高位警告，即将触发清算流程。"
+      }
+    },
+    "ev_g_s_max": {
+      "label": "Metric S Critical",
+      "severity": "clearing",
+      "texts": {
+        "mild":    "[白板] Metric S 达到上限。执行清算：重置为零，写入事件日志。",
+        "medium":  "[白板] Metric S 清算完成。所有累积数据已归档。",
+        "intense": "[白板] Metric S 清算结束。系统恢复至基线。"
+      }
+    },
+    "ev_g_v_high": {
+      "label": "Metric V Warning",
+      "severity": "warning",
+      "texts": {
+        "mild":    "[白板] Metric V 达到高位，数据流加速。",
+        "medium":  "[白板] Metric V 持续上升，系统处于高负载状态。",
+        "intense": "[白板] Metric V 逼近极值，即将触发峰值保护。"
+      }
+    },
+    "ev_g_v_max": {
+      "label": "Metric V Critical",
+      "severity": "ecstasy",
+      "texts": {
+        "mild":    "[白板] Metric V 达到上限。锁定 Metric V，启动自动恢复。",
+        "medium":  "[白板] Metric V 极值事件。系统执行保护性锁定。",
+        "intense": "[白板] Metric V 峰值保护完成。所有通道已恢复，锁已解除。"
+      }
+    },
+    "ev_r_empty": {
+      "label": "Recovery Empty",
+      "severity": "warning",
+      "texts": {
+        "mild":    "[白板] 恢复库存耗尽。",
+        "medium":  "[白板] 恢复库存为空，需要补充。",
+        "intense": "[白板] 恢复库存归零，无法执行恢复操作。"
+      }
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "stimuli": [
+    {
+      "triggered_at": "2026-07-05T13:04:36.206997+08:00",
+      "stimulus_type": "fake"
+    },
+    {
+      "triggered_at": "2026-07-05T13:04:38.472399+08:00",
+      "stimulus_type": "fake"
+    }
+  ],
+  "area_profile": "v"
+}

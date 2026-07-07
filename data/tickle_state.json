@@ -1,0 +1,10 @@
+{
+  "active_triggers": [
+    1,
+    3,
+    2
+  ],
+  "tickle_points": 44,
+  "dodge_enabled": true,
+  "crossed_thresholds": []
+}

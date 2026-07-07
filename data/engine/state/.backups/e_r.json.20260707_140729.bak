@@ -1,0 +1,10 @@
+{
+  "entity_id": "e_r",
+  "channels": {
+    "ch_r_count": 18.0
+  },
+  "flags": {},
+  "meta": {
+    "label": "Recovery System"
+  }
+}
