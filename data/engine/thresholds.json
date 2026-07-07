@@ -1,81 +1,60 @@
 {
   "thresholds": {
-    "thr_g_a_warn": {
-      "label": "Metric A Warning",
-      "description": "Metric A approaching upper limit.",
+    "ev_eg_a_warn": {
       "entity": "e_g",
       "channel": "ch_g_a",
       "operator": ">=",
       "value": 80,
-      "event_id": "ev_g_a_high",
-      "event_type": "warning",
-      "repeatable": true
+      "event_id": "ev_eg_a_warn",
+      "event_type": "warning"
     },
-    "thr_g_a_max": {
-      "label": "Metric A Critical",
-      "description": "Metric A at maximum. Triggers body break probability.",
+    "ev_eg_a_crit": {
       "entity": "e_g",
       "channel": "ch_g_a",
       "operator": ">=",
       "value": 100,
-      "event_id": "ev_g_a_max",
-      "event_type": "critical",
-      "repeatable": true
+      "event_id": "ev_eg_a_crit",
+      "event_type": "critical"
     },
-    "thr_g_s_warn": {
-      "label": "Metric S Warning",
-      "description": "Metric S approaching upper limit.",
+    "ev_eg_s_warn": {
       "entity": "e_g",
       "channel": "ch_g_s",
       "operator": ">=",
       "value": 80,
-      "event_id": "ev_g_s_high",
-      "event_type": "warning",
-      "repeatable": true
+      "event_id": "ev_eg_s_warn",
+      "event_type": "warning"
     },
-    "thr_g_s_max": {
-      "label": "Metric S Critical",
-      "description": "Metric S at maximum. Triggers clearing event — resets to 0, writes log.",
+    "ev_eg_s_clear": {
       "entity": "e_g",
       "channel": "ch_g_s",
       "operator": ">=",
       "value": 100,
-      "event_id": "ev_g_s_max",
-      "event_type": "clearing",
-      "repeatable": true
+      "event_id": "ev_eg_s_clear",
+      "event_type": "clearing"
     },
-    "thr_g_v_warn": {
-      "label": "Metric V Warning",
-      "description": "Metric V approaching upper limit.",
+    "ev_eg_v_warn": {
       "entity": "e_g",
       "channel": "ch_g_v",
       "operator": ">=",
       "value": 80,
-      "event_id": "ev_g_v_high",
-      "event_type": "warning",
-      "repeatable": true
+      "event_id": "ev_eg_v_warn",
+      "event_type": "warning"
     },
-    "thr_g_v_max": {
-      "label": "Metric V Critical",
-      "description": "Metric V at maximum. Triggers ecstasy event — locks Metric V, auto-restores body.",
+    "ev_eg_v_peak": {
       "entity": "e_g",
       "channel": "ch_g_v",
       "operator": ">=",
       "value": 100,
-      "event_id": "ev_g_v_max",
-      "event_type": "ecstasy",
-      "repeatable": true
+      "event_id": "ev_eg_v_peak",
+      "event_type": "ecstasy"
     },
-    "thr_r_empty": {
-      "label": "Recovery Empty",
-      "description": "No recovery items remaining.",
+    "ev_er_count_empty": {
       "entity": "e_r",
       "channel": "ch_r_count",
       "operator": "<=",
       "value": 0,
-      "event_id": "ev_r_empty",
-      "event_type": "warning",
-      "repeatable": true
+      "event_id": "ev_er_count_empty",
+      "event_type": "warning"
     }
   }
 }

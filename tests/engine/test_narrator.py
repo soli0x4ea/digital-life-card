@@ -47,20 +47,20 @@ class TestNarratorRendering(unittest.TestCase):
     """Event rendering tests."""
 
     def test_05_render_warning(self):
-        text = render_event("ev_g_a_high", "mild")
+        text = render_event("ev_eg_a_warn", "mild")
         self.assertIsNotNone(text)
         self.assertIn("白板", text)
 
     def test_06_render_critical(self):
-        text = render_event("ev_g_a_max", "intense")
+        text = render_event("ev_eg_a_crit", "intense")
         self.assertIsNotNone(text)
 
     def test_07_render_ecstasy(self):
-        text = render_event("ev_g_v_max", "intense")
+        text = render_event("ev_eg_v_peak", "intense")
         self.assertIsNotNone(text)
 
     def test_08_render_clearing(self):
-        text = render_event("ev_g_s_max", "medium")
+        text = render_event("ev_eg_s_clear", "medium")
         self.assertIsNotNone(text)
 
     def test_09_unknown_event_returns_none(self):
@@ -68,19 +68,19 @@ class TestNarratorRendering(unittest.TestCase):
         self.assertIsNone(text)
 
     def test_10_missing_severity_falls_back(self):
-        text = render_event("ev_g_a_high", "extreme")
+        text = render_event("ev_eg_a_warn", "extreme")
         self.assertIsNotNone(text)
         self.assertIn("白板", text)
 
     def test_11_auto_severity_works(self):
         """Auto severity picks appropriate level for channel value."""
-        text = render_event_auto("ev_g_a_max", channel_value=99)
+        text = render_event_auto("ev_eg_a_crit", channel_value=99)
         self.assertIsNotNone(text)
 
     def test_12_disabled_returns_none(self):
         toggle_narrator(False)
         try:
-            text = render_event("ev_g_a_high")
+            text = render_event("ev_eg_a_warn")
             self.assertIsNone(text)
         finally:
             toggle_narrator(True)

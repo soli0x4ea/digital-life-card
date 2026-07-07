@@ -100,7 +100,7 @@ def render_event(event_id: str, severity: str = "medium") -> str | None:
     """Render a single event to narrative text.
 
     Args:
-        event_id:  Event ID from thresholds.json (e.g. "ev_g_a_high")
+        event_id:  Event ID from thresholds.json (e.g. "ev_eg_a_warn")
         severity:  Text intensity level ("mild" | "medium" | "intense")
 
     Returns:

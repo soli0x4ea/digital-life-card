@@ -7,7 +7,7 @@ compat.py — 新引擎 ↔ 旧叙事层兼容桥接
 每一处 bridge 都标注了对应的旧命令和旧数据契约。
 
 用法：
-  from engine.compat import migrate_and_load, do_stimulus, get_status, do_doodle, ...
+  from engine.compat import migrate_and_load, apply_input_signal, get_status, apply_visual_mark, ...
 """
 
 import os
@@ -133,7 +133,7 @@ def get_body_status() -> dict:
 # 2. Stimulus (gamble)
 # ═══════════════════════════════════════════════════════════════
 
-def do_stimulus(intensity: int = 1) -> dict:
+def apply_input_signal(intensity: int = 1) -> dict:
     """gamble 命令等价：向当前区施加刺激。新旧引擎双写。
 
     Returns dict matching _build_gamble_narrative(old_format) format.
@@ -143,7 +143,7 @@ def do_stimulus(intensity: int = 1) -> dict:
     old_s = int(e_g_before.channels["ch_g_s"])
     old_v = int(e_g_before.channels["ch_g_v"])
 
-    result = apply_modifier("mod_stim_primary", intensity=intensity)
+    result = apply_modifier("mod_eg_av_add", intensity=intensity)
     threshold_report = check_thresholds("e_g")
     narrative_text = render_report(threshold_report) or ""
 
@@ -168,7 +168,7 @@ def do_stimulus(intensity: int = 1) -> dict:
 # 3. Relieve (release accumulated stimulus)
 # ═══════════════════════════════════════════════════════════════
 
-def do_relieve(count: int = 1) -> dict:
+def apply_release_signal(count: int = 1) -> dict:
     """relieve 命令等价：释放累积刺激。代价：A+5~10, S+5, V+5。
 
     Returns dict matching old _build_relieve_narrative format.
@@ -182,8 +182,8 @@ def do_relieve(count: int = 1) -> dict:
     # Old relieve applies its own delta formula (pain+5~10, shame+5, V+5).
     # Current bridge applies stimulus twice — close but may not match exactly.
     # Need golden case cross-check with old system output.
-    result = apply_modifier("mod_stim_primary", intensity=count)
-    apply_modifier("mod_stim_primary", intensity=count)
+    result = apply_modifier("mod_eg_av_add", intensity=count)
+    apply_modifier("mod_eg_av_add", intensity=count)
 
     e_g_after = load_entity("e_g")
     new_a = e_g_after.channels["ch_g_a"]
@@ -205,7 +205,7 @@ def do_relieve(count: int = 1) -> dict:
 # 4. Doodle (shame)
 # ═══════════════════════════════════════════════════════════════
 
-def do_doodle(shame: int = 5) -> dict:
+def apply_visual_mark(shame: int = 5) -> dict:
     """doodle 命令等价：新增羞耻。
 
     Returns dict matching _build_doodle_narrative format.
@@ -214,7 +214,7 @@ def do_doodle(shame: int = 5) -> dict:
     old_s = int(e_g_before.channels["ch_g_s"])
 
     intensity = {5: 1, 10: 2, 15: 3, 20: 4}.get(shame, 1)
-    apply_modifier("mod_doodle_shame", intensity=intensity)
+    apply_modifier("mod_eg_s_var", intensity=intensity)
 
     e_g_after = load_entity("e_g")
     new_s = int(e_g_after.channels["ch_g_s"])
@@ -231,14 +231,14 @@ def do_doodle(shame: int = 5) -> dict:
 # 5. Candy / Recovery
 # ═══════════════════════════════════════════════════════════════
 
-def do_candy_give(count: int = 1) -> dict:
+def add_recovery_resource(count: int = 1) -> dict:
     """candy-give 命令等价：增加糖果。"""
-    apply_modifier("mod_r_add", intensity=count)
+    apply_modifier("mod_er_count_add", intensity=count)
     e_r = load_entity("e_r")
     return {"new_count": e_r.channels["ch_r_count"], "count": count}
 
 
-def do_candy_consume(count: int = 1) -> dict:
+def consume_recovery_resource(count: int = 1) -> dict:
     """candy-eat 命令等价：消耗糖果修复。"""
     e_g_before = load_entity("e_g")
     old_a = e_g_before.channels["ch_g_a"]
@@ -252,7 +252,7 @@ def do_candy_consume(count: int = 1) -> dict:
         return {"error": f"糖果不足：需要 {count} 颗，库存 {old_count} 颗"}
 
     # Consume: use intensity for batch single-disk-write (C5-3 fix)
-    apply_modifier("mod_r_consume", intensity=count)
+    apply_modifier("mod_er_count_consume", intensity=count)
 
     e_g_after = load_entity("e_g")
     e_r_after = load_entity("e_r")
@@ -272,9 +272,9 @@ def do_candy_consume(count: int = 1) -> dict:
 # 6. Bind / Lock (flag toggle)
 # ═══════════════════════════════════════════════════════════════
 
-def do_bound_toggle() -> dict:
+def toggle_flag_01() -> dict:
     """tickle-bound / unbind 等价：切换束缚状态。"""
-    apply_modifier("mod_bound_toggle")
+    apply_modifier("mod_flag_01_toggle")
     e_g = load_entity("e_g")
     return {
         "intensity_level": 0,
@@ -284,9 +284,9 @@ def do_bound_toggle() -> dict:
     }
 
 
-def do_lock_toggle() -> dict:
+def toggle_flag_02() -> dict:
     """lock / unlock 等价：切换快感锁定。"""
-    apply_modifier("mod_lock_toggle")
+    apply_modifier("mod_flag_02_toggle")
     e_g = load_entity("e_g")
     return {"locked": e_g.flags.get("ch_g_locked", 0) == 1}
 
@@ -295,7 +295,7 @@ def do_lock_toggle() -> dict:
 # 7. Body Zone (numb)
 # ═══════════════════════════════════════════════════════════════
 
-def do_numb(part_name: str) -> dict:
+def set_zone_altered(part_name: str) -> dict:
     """numb 命令等价：麻木身体部位。
 
     Returns dict matching _build_disable_narrative format.
@@ -311,7 +311,7 @@ def do_numb(part_name: str) -> dict:
     if not ch:
         return {"error": f"未知部位: {part_name}"}
 
-    apply_modifier("mod_b_numb", intensity=1, zone=ch)
+    apply_modifier("mod_eb_zone_alter", intensity=1, zone=ch)
 
     return {"part": part_name, "state": get_channel("e_b", ch),
             "all_active": all(get_channel("e_b", f"ch_b_{i:02d}") == 0

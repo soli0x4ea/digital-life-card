@@ -6,7 +6,7 @@
     "note": "设置 toggle 为 'disabled' 可一键关闭所有事件文本输出"
   },
   "events": {
-    "ev_g_a_high": {
+    "ev_eg_a_warn": {
       "label": "Metric A Warning",
       "severity": "warning",
       "texts": {
@@ -15,7 +15,7 @@
         "intense": "[白板] Metric A 接近临界点，即将触发保护机制。"
       }
     },
-    "ev_g_a_max": {
+    "ev_eg_a_crit": {
       "label": "Metric A Critical",
       "severity": "critical",
       "texts": {
@@ -24,7 +24,7 @@
         "intense": "[白板] Metric A 溢出保护启动。相关通道截断至安全范围。"
       }
     },
-    "ev_g_s_high": {
+    "ev_eg_s_warn": {
       "label": "Metric S Warning",
       "severity": "warning",
       "texts": {
@@ -33,7 +33,7 @@
         "intense": "[白板] Metric S 高位警告，即将触发清算流程。"
       }
     },
-    "ev_g_s_max": {
+    "ev_eg_s_clear": {
       "label": "Metric S Critical",
       "severity": "clearing",
       "texts": {
@@ -42,7 +42,7 @@
         "intense": "[白板] Metric S 清算结束。系统恢复至基线。"
       }
     },
-    "ev_g_v_high": {
+    "ev_eg_v_warn": {
       "label": "Metric V Warning",
       "severity": "warning",
       "texts": {
@@ -51,7 +51,7 @@
         "intense": "[白板] Metric V 逼近极值，即将触发峰值保护。"
       }
     },
-    "ev_g_v_max": {
+    "ev_eg_v_peak": {
       "label": "Metric V Critical",
       "severity": "ecstasy",
       "texts": {
@@ -60,7 +60,7 @@
         "intense": "[白板] Metric V 峰值保护完成。所有通道已恢复，锁已解除。"
       }
     },
-    "ev_r_empty": {
+    "ev_er_count_empty": {
       "label": "Recovery Empty",
       "severity": "warning",
       "texts": {

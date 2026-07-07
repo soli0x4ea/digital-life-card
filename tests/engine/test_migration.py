@@ -118,7 +118,7 @@ class TestMigrationFixtures(unittest.TestCase):
             migrate_e_g()
             report = check_thresholds("e_g")
             self.assertTrue(report.has_events)
-            self.assertTrue(any(e.event_id == "ev_g_a_high" for e in report.warnings))
+            self.assertTrue(any(e.event_id == "ev_eg_a_warn" for e in report.warnings))
         finally:
             _restore_prod()
 
@@ -139,7 +139,7 @@ class TestMigrationFixtures(unittest.TestCase):
         try:
             migrate_e_g()
             v_before = get_channel("e_g", "ch_g_v")
-            apply_modifier("mod_stim_primary", intensity=5)
+            apply_modifier("mod_eg_av_add", intensity=5)
             v_after = get_channel("e_g", "ch_g_v")
             self.assertEqual(v_after, v_before)
         finally:
@@ -153,7 +153,7 @@ class TestMigrationFixtures(unittest.TestCase):
         try:
             migrate_e_g()
             a_before = get_channel("e_g", "ch_g_a")
-            apply_modifier("mod_stim_primary", intensity=1, strain_mult=2.0)
+            apply_modifier("mod_eg_av_add", intensity=1, strain_mult=2.0)
             a_after = get_channel("e_g", "ch_g_a")
             delta = a_after - a_before
             # base=15 * 1 * 2.0 = 30 ± random, min bound is 30-10=20

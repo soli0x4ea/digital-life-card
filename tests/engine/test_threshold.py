@@ -61,7 +61,7 @@ class TestThresholdTrigger(unittest.TestCase):
         report = check_thresholds("e_g")
         self.assertTrue(report.has_events)
         self.assertEqual(len(report.warnings), 1)
-        self.assertEqual(report.warnings[0].event_id, "ev_g_a_high")
+        self.assertEqual(report.warnings[0].event_id, "ev_eg_a_warn")
         self.assertEqual(len(report.criticals), 0)
 
     # ── 6. Critical triggers at ≥100 ────────────────────────
@@ -69,7 +69,7 @@ class TestThresholdTrigger(unittest.TestCase):
         set_channel("e_g", "ch_g_a", 100)
         report = check_thresholds("e_g")
         self.assertGreaterEqual(len(report.criticals), 1)
-        self.assertTrue(any(e.event_id == "ev_g_a_max" for e in report.criticals))
+        self.assertTrue(any(e.event_id == "ev_eg_a_crit" for e in report.criticals))
 
     # ── 7. Warning + critical both trigger when ≥100 ────────
     def test_07_warning_and_critical_both_trigger(self):
@@ -90,7 +90,7 @@ class TestThresholdTrigger(unittest.TestCase):
         report = check_thresholds("e_g")
         self.assertGreaterEqual(len(report.ecstasies), 1)
         self.assertEqual(report.worst_event_type, "ecstasy")
-        self.assertTrue(any(e.event_id == "ev_g_v_max" for e in report.ecstasies))
+        self.assertTrue(any(e.event_id == "ev_eg_v_peak" for e in report.ecstasies))
 
     # ── 10. Clearing event (Metric S max) ───────────────────
     def test_10_clearing_type(self):
@@ -98,14 +98,14 @@ class TestThresholdTrigger(unittest.TestCase):
         report = check_thresholds("e_g")
         self.assertGreaterEqual(len(report.clearings), 1)
         self.assertEqual(report.worst_event_type, "clearing")
-        self.assertTrue(any(e.event_id == "ev_g_s_max" for e in report.clearings))
+        self.assertTrue(any(e.event_id == "ev_eg_s_clear" for e in report.clearings))
 
     # ── 11. Recovery empty threshold ────────────────────────
     def test_11_recovery_empty(self):
         set_channel("e_r", "ch_r_count", 0)
         report = check_thresholds("e_r")
         self.assertTrue(report.has_events)
-        self.assertTrue(any(e.event_id == "ev_r_empty" for e in report.triggered))
+        self.assertTrue(any(e.event_id == "ev_er_count_empty" for e in report.triggered))
 
     def test_12_recovery_not_empty(self):
         set_channel("e_r", "ch_r_count", 5)
@@ -115,14 +115,14 @@ class TestThresholdTrigger(unittest.TestCase):
     # ── 13. Single threshold check ──────────────────────────
     def test_13_single_check(self):
         set_channel("e_g", "ch_g_s", 90)
-        event = check_single_threshold("e_g", "thr_g_s_warn")
+        event = check_single_threshold("e_g", "ev_eg_s_warn")
         self.assertIsNotNone(event)
-        self.assertEqual(event.event_id, "ev_g_s_high")
+        self.assertEqual(event.event_id, "ev_eg_s_warn")
         self.assertEqual(event.current_value, 90)
         self.assertEqual(event.event_type, "warning")
 
     def test_14_single_check_no_trigger(self):
-        event = check_single_threshold("e_g", "thr_g_s_warn")
+        event = check_single_threshold("e_g", "ev_eg_s_warn")
         self.assertIsNone(event)
 
     # ── 14. All entities check ──────────────────────────────
@@ -141,7 +141,7 @@ class TestThresholdTrigger(unittest.TestCase):
     # ── 15. ThresholdEvent dataclass fields ─────────────────
     def test_16_event_fields(self):
         set_channel("e_g", "ch_g_s", 85)
-        event = check_single_threshold("e_g", "thr_g_s_warn")
+        event = check_single_threshold("e_g", "ev_eg_s_warn")
         self.assertEqual(event.entity_id, "e_g")
         self.assertEqual(event.channel, "ch_g_s")
         self.assertEqual(event.threshold_value, 80)

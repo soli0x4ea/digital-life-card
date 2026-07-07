@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+*.pyo
+data/engine/state/.backups/
+data/engine/state/e_*.json

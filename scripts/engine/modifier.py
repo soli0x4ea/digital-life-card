@@ -111,7 +111,7 @@ def apply_modifier(modifier_id: str, intensity: int = 1,
     """Apply a single modifier to its target entity.
 
     Args:
-        modifier_id:  Key in modifiers.json (e.g. "mod_stim_primary")
+        modifier_id:  Key in modifiers.json (e.g. "mod_eg_av_add")
         intensity:    Multiplier (1-10). Clamped to config range.
         zone:         For zone modifiers, which zone to target
         strain_mult:  External multiplier (e.g. bound = 2.0 from caller context)

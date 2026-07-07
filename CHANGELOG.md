@@ -4,9 +4,13 @@
 
 ---
 
+### v0.5.2 — 标识符全量中性化（2026-07-07）
+
+按 Trae 复核意见全量清洗标识符层面。16 modifier ID + 7 event ID + 8 compat 函数 + 11 SKILL 命令表项。命名规范 `mod_{实体缩写}_{通道}_{动作}`。纯重命名，零逻辑变更，121/121 测试全过。
+
 ### v0.5.1 — Phase 5 审查反馈修复（2026-07-07）
 
-4 项修复：C5-2 area_profile 硬编码→动态读 e_x / C5-1 do_relieve 加 TODO / C5-3 candy_consume for 循环→intensity 批量 / C5-4 补命令清单。121/121 全过（3 次连续）。
+4 项修复：C5-2 area_profile 硬编码→动态读 e_x / C5-1 apply_release_signal 加 TODO / C5-3 candy_consume for 循环→intensity 批量 / C5-4 补命令清单。121/121 全过（3 次连续）。
 
 ### v0.5.0 — Phase 5 兼容桥接层：新引擎 ↔ 旧叙事（2026-07-07）
 
@@ -25,13 +29,13 @@
 |:--|:--|:--|
 | status | `get_status()` | load e_g/e_r/e_x, 类型转换 int, bool |
 | seal-status | `get_body_status()` | load e_b, 11 zone state mapping |
-| gamble | `do_stimulus(n)` | mod_stim_primary + check_thresholds + narrator |
-| relieve | `do_relieve(n)` | mod_stim_primary ×2 |
-| doodle | `do_doodle(s)` | mod_doodle_shame |
-| candy-give | `do_candy_give(n)` | mod_r_add |
-| candy-eat | `do_candy_consume(n)` | mod_r_consume ×n |
-| tickle-bound | `do_bound_toggle()` | mod_bound_toggle (flag_toggle) |
-| numb | `do_numb(part)` | mod_b_numb, zone mapping |
+| gamble | `apply_input_signal(n)` | mod_eg_av_add + check_thresholds + narrator |
+| relieve | `apply_release_signal(n)` | mod_eg_av_add ×2 |
+| doodle | `apply_visual_mark(s)` | mod_eg_s_var |
+| candy-give | `add_recovery_resource(n)` | mod_er_count_add |
+| candy-eat | `consume_recovery_resource(n)` | mod_er_count_consume ×n |
+| tickle-bound | `toggle_flag_01()` | mod_flag_01_toggle (flag_toggle) |
+| numb | `set_zone_altered(part)` | mod_eb_zone_alter, zone mapping |
 
 **关键设计：** 纯加法，零侵入——不修改 soul_sense.py/soul_core.py 等任何旧模块代码。所有兼容函数返回 old-format dict，可直接喂给旧 narratives 层。
 

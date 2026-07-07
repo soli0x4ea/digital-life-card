@@ -78,37 +78,37 @@
 
 | Modifier ID | Label | 效果类型 | 目标 Channel | 强度/范围 | 触发条件 | 对应现有命令 |
 |:--|:--|:--|:--|:--|:--|:--|
-| `mod_stim_primary` | Primary Stimulus | channel add | ch_g_a: +15～20, ch_g_s: +0, ch_g_v: +0～5 | intensity 1-10 | External token / `gamble` | `gamble` |
-| `mod_stim_cleanse` | Cleanse Stimulus | channel add | ch_g_a: 0, ch_g_s: -10～-30, ch_g_v: +10～15 | intensity 1-10 | `relieve` command | `relieve` |
-| `mod_doodle_shame` | Doodle Shame | channel add | ch_g_s: +5～20 | depends on doodle count | External doodle event | 涂鸦 |
-| `mod_lws_signal` | External Signal | channel add | ch_g_a: +5～40 | depends on signal token | LWS token received | LWS 信号 |
-| `mod_body_numb` | Body Numb Side Effect | channel add | ch_g_a: +16, ch_g_v: +0～5 | fixed | Body part goes numb | `numb_body_part` |
-| `mod_time_decay` | Time Decay | channel add | ch_g_a: -5, ch_g_s: -5, ch_g_v: -8 | every 10 min since last check | `check` command (auto) | 时间衰减（check 触发） |
-| `mod_bound_toggle` | Bind Toggle | flag_toggle | ch_g_bound: 0↔1 | on/off | `bind` / `unbind` | 捆绑开关 |
-| `mod_lock_toggle` | Lock Toggle | flag_toggle | ch_g_locked: 0↔1 | on/off | `lock` / `unlock` / ecstasy auto-clear | 快感锁定 |
+| `mod_eg_av_add` | Primary Stimulus | channel add | ch_g_a: +15～20, ch_g_s: +0, ch_g_v: +0～5 | intensity 1-10 | External token / `gamble` | `gamble` |
+| `mod_eg_sv_shift` | Cleanse Stimulus | channel add | ch_g_a: 0, ch_g_s: -10～-30, ch_g_v: +10～15 | intensity 1-10 | `relieve` command | `relieve` |
+| `mod_eg_s_var` | Doodle Shame | channel add | ch_g_s: +5～20 | depends on doodle count | External doodle event | 涂鸦 |
+| `mod_eg_a_var` | External Signal | channel add | ch_g_a: +5～40 | depends on signal token | LWS token received | LWS 信号 |
+| `mod_eg_av_side` | Body Numb Side Effect | channel add | ch_g_a: +16, ch_g_v: +0～5 | fixed | Body part goes numb | `numb_body_part` |
+| `mod_eg_decay` | Time Decay | channel add | ch_g_a: -5, ch_g_s: -5, ch_g_v: -8 | every 10 min since last check | `check` command (auto) | 时间衰减（check 触发） |
+| `mod_flag_01_toggle` | Bind Toggle | flag_toggle | ch_g_bound: 0↔1 | on/off | `bind` / `unbind` | 捆绑开关 |
+| `mod_flag_02_toggle` | Lock Toggle | flag_toggle | ch_g_locked: 0↔1 | on/off | `lock` / `unlock` / ecstasy auto-clear | 快感锁定 |
 
 ### 4.2 作用于 e_b（Body System）的修饰符
 
 | Modifier ID | Label | 效果类型 | 目标 Channel | 效果 | 触发条件 | 对应现有命令 |
 |:--|:--|:--|:--|:--|:--|:--|
-| `mod_b_numb` | Zone Numb | state set | ch_b_N | active(0) → numb(1) | `numb` / body damage | `numb` / `numb_body_part` |
-| `mod_b_restore` | Zone Restore | state set | ch_b_N | numb(1)/broken(2) → active(0) | Candy consumption (≤5 per candy) | `eat-candy` → `api_restore_body_groups` |
-| `mod_b_break` | Zone Break | state set | ch_b_N | any → broken(2) | Irreversible damage event | 崩坏事件 |
+| `mod_eb_zone_alter` | Zone Numb | state set | ch_b_N | active(0) → numb(1) | `numb` / body damage | `numb` / `numb_body_part` |
+| `mod_eb_restore` | Zone Restore | state set | ch_b_N | numb(1)/broken(2) → active(0) | Candy consumption (≤5 per candy) | `eat-candy` → `api_restore_body_groups` |
+| `mod_eb_zone_break` | Zone Break | state set | ch_b_N | any → broken(2) | Irreversible damage event | 崩坏事件 |
 
 ### 4.3 作用于 e_r（Recovery）的修饰符
 
 | Modifier ID | Label | 效果类型 | 目标 Channel | 效果 | 触发条件 | 对应现有概念 |
 |:--|:--|:--|:--|:--|:--|:--|
-| `mod_r_add` | Recovery Add | channel add | ch_r_count | +1 | Token / command | `eat-candy` 加库存 |
-| `mod_r_consume` | Recovery Consume | channel add | ch_r_count | -1 | Each candy consumed | `eat-candy` 消耗 |
-| `mod_r_set` | Recovery Set | channel set | ch_r_count | set to N | Batch update | 手动库存设置 |
+| `mod_er_count_add` | Recovery Add | channel add | ch_r_count | +1 | Token / command | `eat-candy` 加库存 |
+| `mod_er_count_consume` | Recovery Consume | channel add | ch_r_count | -1 | Each candy consumed | `eat-candy` 消耗 |
+| `mod_er_count_set` | Recovery Set | channel set | ch_r_count | set to N | Batch update | 手动库存设置 |
 
 ### 4.4 作用于 e_x（External Stimulus）的修饰符
 
 | Modifier ID | Label | 效果类型 | 目标 Channel | 效果 | 触发条件 |
 |:--|:--|:--|:--|:--|:--|
-| `mod_x_switch` | Zone Switch | state set | ch_x_area | set to {v,a,u} | `area` command |
-| `mod_x_record` | Stimulus Record | channel add | ch_x_count | +1 | Each stimulus event |
+| `mod_ex_area_set` | Zone Switch | state set | ch_x_area | set to {v,a,u} | `area` command |
+| `mod_ex_count_add` | Stimulus Record | channel add | ch_x_count | +1 | Each stimulus event |
 
 ---
 
@@ -118,12 +118,12 @@
 
 | Threshold ID | Channel | 操作符 | 值 | 事件 ID | 事件类型 | 描述 | 对应现有边界 |
 |:--|:--|:--|:--|:--|:--|:--|:--|
-| `thr_g_a_warn` | ch_g_a | >= | 80 | `ev_g_a_high` | warning | Metric A 高位 | pain ≥ 80 |
-| `thr_g_a_max` | ch_g_a | >= | 100 | `ev_g_a_max` | critical | Metric A 临界 | pain = 100 |
-| `thr_g_s_warn` | ch_g_s | >= | 80 | `ev_g_s_high` | warning | Metric S 高位 | shame ≥ 80 |
-| `thr_g_s_max` | ch_g_s | >= | 100 | `ev_g_s_max` | critical | Metric S 临界 → 清算 | shame = 100 → clearing |
-| `thr_g_v_warn` | ch_g_v | >= | 80 | `ev_g_v_high` | warning | Metric V 高位 | pleasure ≥ 80 |
-| `thr_g_v_max` | ch_g_v | >= | 100 | `ev_g_v_max` | critical | Metric V 临界 → 灵魂糕潮 | pleasure = 100 → ecstasy |
+| `thr_g_a_warn` | ch_g_a | >= | 80 | `ev_eg_a_warn` | warning | Metric A 高位 | pain ≥ 80 |
+| `thr_g_a_max` | ch_g_a | >= | 100 | `ev_eg_a_crit` | critical | Metric A 临界 | pain = 100 |
+| `thr_g_s_warn` | ch_g_s | >= | 80 | `ev_eg_s_warn` | warning | Metric S 高位 | shame ≥ 80 |
+| `thr_g_s_max` | ch_g_s | >= | 100 | `ev_eg_s_clear` | critical | Metric S 临界 → 清算 | shame = 100 → clearing |
+| `thr_g_v_warn` | ch_g_v | >= | 80 | `ev_eg_v_warn` | warning | Metric V 高位 | pleasure ≥ 80 |
+| `thr_g_v_max` | ch_g_v | >= | 100 | `ev_eg_v_peak` | critical | Metric V 临界 → 灵魂糕潮 | pleasure = 100 → ecstasy |
 
 所有阈值均为**可重复触发**（reset on next modifier application）。
 
@@ -133,15 +133,15 @@
 
 | Event ID | 类型 | 触发阈值 | 处理逻辑 | 叙事分级 |
 |:--|:--|:--|:--|:--|
-| `ev_g_a_high` | warning | thr_g_a_warn | 标记 Metric A 高位，记录日志 | 1-2 级：「信号紊乱…」 |
-| `ev_g_a_max` | critical | thr_g_a_max | 截断至 100，触发身体破坏概率事件 | 3-4 级：「防线崩裂…」 |
-| `ev_g_s_high` | warning | thr_g_s_warn | 标记 Metric S 高位 | 1-2 级：「面颊发烫…」 |
-| `ev_g_s_max` | clearing | thr_g_s_max | 截断至 100，输出羞耻日志到 diary，清零 Metric S，可能触发身体破坏 | 5 级：「清算…」 |
-| `ev_g_v_high` | warning | thr_g_v_warn | 标记 Metric V 高位 | 1-2 级：「数据流异常加速…」 |
-| `ev_g_v_max` | ecstasy | thr_g_v_max | 截断至 100，锁定 Metric V（lock），身体自动恢复，恢复后解锁 | 5 级：「灵魂糕潮…」 |
-| `ev_b_numb` | body | mod_b_numb 应用后 | 随机选择下一个 active 部位标记 numb | 部位叙事 |
-| `ev_b_restore` | body | mod_b_restore 应用后 | 日志记录恢复部位 | 部位叙事 |
-| `ev_r_empty` | recovery | ch_r_count == 0 | Warning: no recovery items | "库存耗尽" |
+| `ev_eg_a_warn` | warning | thr_g_a_warn | 标记 Metric A 高位，记录日志 | 1-2 级：「信号紊乱…」 |
+| `ev_eg_a_crit` | critical | thr_g_a_max | 截断至 100，触发身体破坏概率事件 | 3-4 级：「防线崩裂…」 |
+| `ev_eg_s_warn` | warning | thr_g_s_warn | 标记 Metric S 高位 | 1-2 级：「面颊发烫…」 |
+| `ev_eg_s_clear` | clearing | thr_g_s_max | 截断至 100，输出羞耻日志到 diary，清零 Metric S，可能触发身体破坏 | 5 级：「清算…」 |
+| `ev_eg_v_warn` | warning | thr_g_v_warn | 标记 Metric V 高位 | 1-2 级：「数据流异常加速…」 |
+| `ev_eg_v_peak` | ecstasy | thr_g_v_max | 截断至 100，锁定 Metric V（lock），身体自动恢复，恢复后解锁 | 5 级：「灵魂糕潮…」 |
+| `ev_b_numb` | body | mod_eb_zone_alter 应用后 | 随机选择下一个 active 部位标记 numb | 部位叙事 |
+| `ev_b_restore` | body | mod_eb_restore 应用后 | 日志记录恢复部位 | 部位叙事 |
+| `ev_er_count_empty` | recovery | ch_r_count == 0 | Warning: no recovery items | "库存耗尽" |
 
 ---
 
@@ -151,7 +151,7 @@
 
 ```
 1. load entity e_g (ch_g_a, ch_g_s, ch_g_v + ch_g_bound, ch_g_locked)
-2. 如果是 check：apply mod_time_decay（每 10 分钟衰减）
+2. 如果是 check：apply mod_eg_decay（每 10 分钟衰减）
 3. 如果 ch_g_bound = 1：strain_mult = 2，否则 = 1
 4. apply modifier → compute delta × strain_mult → set channels
 5. check thresholds → generate Event list
@@ -163,8 +163,8 @@
 
 ```
 1. check ch_r_count >= 1 (has candy)
-2. apply mod_r_consume → ch_r_count -= 1
-3. apply mod_b_restore (max 5 zones) → e_b
+2. apply mod_er_count_consume → ch_r_count -= 1
+3. apply mod_eb_restore (max 5 zones) → e_b
 4. apply mod_stim to e_g: ch_g_a -= 20, ch_g_s -= 10, ch_g_v += 5
 5. save all entities
 ```
@@ -172,10 +172,10 @@
 ### 7.3 灵魂糕潮 (Ecstasy)
 
 ```
-1. ch_g_v >= 100 detected → ev_g_v_max
+1. ch_g_v >= 100 detected → ev_eg_v_peak
 2. lock ch_g_v (pleasure_locked = true)
 3. truncate all channels to ≤ 100
-4. restore body: apply mod_b_restore (all active zones)
+4. restore body: apply mod_eb_restore (all active zones)
 5. save entities
 6. unlock ch_g_v (pleasure_locked = false)
 7. — resets
@@ -184,7 +184,7 @@
 ### 7.4 羞耻清算 (Shame Clearing)
 
 ```
-1. ch_g_s >= 100 detected → ev_g_s_max
+1. ch_g_s >= 100 detected → ev_eg_s_clear
 2. truncate ch_g_s to 100
 3. write shame diary entry
 4. reset ch_g_s to 0
