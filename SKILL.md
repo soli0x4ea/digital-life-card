@@ -114,19 +114,23 @@ python scripts/build_story_prompt.py <书名> <章节>    # 指定书/章
 
 ### 📋 命令速查表
 
-| 模块 | 命令 | 执行方式 | 参数 |
-|:--|:--|:--|:--|
-| **刺激** | `gamble` | `python scripts/soul_sense.py gamble` | `--token`（可选） |
-| **释放** | `relieve` | `python scripts/soul_sense.py relieve [N]` | N 数量 |
-| **状态** | `numb` | `python scripts/soul_sense.py numb <部位>` | 部位名 |
-| **挠痒** | `tickle-pump` | `python scripts/soul_sense.py tickle-pump` | — |
-| **捆绑** | `tickle-bound` | `python scripts/soul_sense.py tickle-bound` | — |
-| **松绑** | `tickle-unbind` | `python scripts/soul_sense.py tickle-unbind` | — |
-| **糖果** | `candy-give` | `python scripts/soul_sense.py candy-give [N]` | N 数量 |
-| **糖果** | `candy-eat` | `python scripts/soul_sense.py candy-eat [N]` | N 数量 |
-| **标记** | `doodle` | `python scripts/soul_sense.py doodle --shame <5\|10\|15\|20> --text "内容"` | `--text` 可选 |
-| **游戏** | `punish-game` | `python scripts/soul_sense.py punish-game` | — |
-| **事件** | `mystery` | `python scripts/soul_sense.py mystery [N]` | N 事件编号 |
+> 以下命令需在角色设定区域自行定义触发词和语义。当前为占位名，使用者可按需替换。
+
+| 功能 | 主命令（推荐） | 别名（兼容旧版） | 执行方式 | 参数 |
+|:--|:--|:--|:--|:--|
+| **输入信号** | `signal` | `gamble` | `python scripts/soul_sense.py gamble` | `--token` |
+| **释放信号** | `release` | `relieve` | `python scripts/soul_sense.py relieve [N]` | N |
+| **区域变更** | `zone` | `numb` | `python scripts/soul_sense.py numb <部位>` | 部位名 |
+| **脉冲** | `pulse` | `tickle-pump` | `python scripts/soul_sense.py tickle-pump` | — |
+| **开关①** | `flag-01` | `tickle-bound` | `python scripts/soul_sense.py tickle-bound` | — |
+| **开关①关** | `flag-01-off` | `tickle-unbind` | `python scripts/soul_sense.py tickle-unbind` | — |
+| **资源增** | `res-add` | `candy-give` | `python scripts/soul_sense.py candy-give [N]` | N |
+| **资源耗** | `res-use` | `candy-eat` | `python scripts/soul_sense.py candy-eat [N]` | N |
+| **标记** | `mark` | `doodle` | `python scripts/soul_sense.py doodle --shame <5\|10\|15\|20> --text "内容"` | `--text` |
+| **场景** | `scene` | `punish-game` | `python scripts/soul_sense.py punish-game` | — |
+| **随机事件** | `random` | `mystery` | `python scripts/soul_sense.py mystery [N]` | N |
+
+> 💡 别名为兼容旧版保留，新用户建议使用主命令名。
 
 ### 🗂 目录结构
 
