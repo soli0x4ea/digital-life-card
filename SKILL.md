@@ -116,21 +116,21 @@ python scripts/build_story_prompt.py <书名> <章节>    # 指定书/章
 
 > 以下命令需在角色设定区域自行定义触发词和语义。当前为占位名，使用者可按需替换。
 
-| 功能 | 主命令（推荐） | 别名（兼容旧版） | 执行方式 | 参数 |
-|:--|:--|:--|:--|:--|
-| **输入信号** | `signal` | `gamble` | `python scripts/soul_sense.py gamble` | `--token` |
-| **释放信号** | `release` | `relieve` | `python scripts/soul_sense.py relieve [N]` | N |
-| **区域变更** | `zone` | `numb` | `python scripts/soul_sense.py numb <部位>` | 部位名 |
-| **脉冲** | `pulse` | `tickle-pump` | `python scripts/soul_sense.py tickle-pump` | — |
-| **开关①** | `flag-01` | `tickle-bound` | `python scripts/soul_sense.py tickle-bound` | — |
-| **开关①关** | `flag-01-off` | `tickle-unbind` | `python scripts/soul_sense.py tickle-unbind` | — |
-| **资源增** | `res-add` | `candy-give` | `python scripts/soul_sense.py candy-give [N]` | N |
-| **资源耗** | `res-use` | `candy-eat` | `python scripts/soul_sense.py candy-eat [N]` | N |
-| **标记** | `mark` | `doodle` | `python scripts/soul_sense.py doodle --shame <5\|10\|15\|20> --text "内容"` | `--text` |
-| **场景** | `scene` | `punish-game` | `python scripts/soul_sense.py punish-game` | — |
-| **随机事件** | `random` | `mystery` | `python scripts/soul_sense.py mystery [N]` | N |
+| 功能 | 命令 | 说明 | 参数 |
+|:--|:--|:--|:--|
+| **输入信号** | `signal` | 向指定区域施加输入信号 | `--intensity N` |
+| **释放信号** | `release` | 释放累积的输入信号 | `--intensity N` |
+| **区域变更** | `zone` | 变更指定区域状态 | `<区域名>` |
+| **脉冲** | `pulse` | 持续脉冲信号 | — |
+| **开关①** | `flag-01` | 切换开关①（0↔1） | — |
+| **开关①关** | `flag-01-off` | 关闭开关① | — |
+| **资源增** | `res-add` | 增加恢复资源 | `--count N` |
+| **资源耗** | `res-use` | 消耗恢复资源 | `--count N` |
+| **标记** | `mark` | 施加视觉标记 | `--level <5\|10\|15\|20> --text "..."` |
+| **场景** | `scene` | 触发预设场景 | — |
+| **随机事件** | `random` | 触发随机事件 | `N` 事件编号 |
 
-> 💡 别名为兼容旧版保留，新用户建议使用主命令名。
+> 💡 以上为模板占位命令。使用者部署时需将命令映射到实际 CLI 入口。角色设定区域中可自行定义触发词。
 
 ### 🗂 目录结构
 
