@@ -116,21 +116,21 @@ python scripts/build_story_prompt.py <书名> <章节>    # 指定书/章
 
 > 以下命令需在角色设定区域自行定义触发词和语义。当前为占位名，使用者可按需替换。
 
-| 功能 | 命令 | 说明 | 参数 |
+| 功能 | 命令 | 执行方式 | 参数 |
 |:--|:--|:--|:--|
-| **输入信号** | `signal` | 向指定区域施加输入信号 | `--intensity N` |
-| **释放信号** | `release` | 释放累积的输入信号 | `--intensity N` |
-| **区域变更** | `zone` | 变更指定区域状态 | `<区域名>` |
-| **脉冲** | `pulse` | 持续脉冲信号 | — |
-| **开关①** | `flag-01` | 切换开关①（0↔1） | — |
-| **开关①关** | `flag-01-off` | 关闭开关① | — |
-| **资源增** | `res-add` | 增加恢复资源 | `--count N` |
-| **资源耗** | `res-use` | 消耗恢复资源 | `--count N` |
-| **标记** | `mark` | 施加视觉标记 | `--level <5\|10\|15\|20> --text "..."` |
-| **场景** | `scene` | 触发预设场景 | — |
-| **随机事件** | `random` | 触发随机事件 | `N` 事件编号 |
+| **输入信号** | `signal` | `soul_sense.py signal` | `--intensity N` |
+| **释放信号** | `release` | `soul_sense.py release` | `--intensity N` |
+| **区域变更** | `zone` | `soul_sense.py zone` | `<区域名>` |
+| **脉冲** | `pulse` | `soul_sense.py pulse` | — |
+| **开关①** | `flag-01` | `soul_sense.py flag-01` | — |
+| **开关①关** | `flag-01-off` | `soul_sense.py flag-01-off` | — |
+| **资源增** | `res-add` | `soul_sense.py res-add` | `--count N` |
+| **资源耗** | `res-use` | `soul_sense.py res-use` | `--count N` |
+| **标记** | `mark` | `soul_sense.py mark` | `--level <5\|10\|15\|20> --text "..."` |
+| **场景** | `scene` | `soul_sense.py scene` | — |
+| **随机事件** | `random` | `soul_sense.py random` | `N` 事件编号 |
 
-> 💡 以上为模板占位命令。使用者部署时需将命令映射到实际 CLI 入口。角色设定区域中可自行定义触发词。
+> 💡 执行方式为给 LLM 的命令参考。使用者部署时需确保 `soul_sense.py` 的参数映射与表中一致。角色设定区域中可定义触发词。
 
 ### 🗂 目录结构
 
