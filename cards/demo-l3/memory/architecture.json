@@ -1,0 +1,29 @@
+{
+  "layers": [
+    {
+      "id": "working",
+      "label": "Working Memory",
+      "ttl_seconds": 3600,
+      "capacity": 100,
+      "promotion_threshold": 5
+    },
+    {
+      "id": "short_term",
+      "label": "Short-term Memory",
+      "ttl_seconds": 86400,
+      "capacity": 1000,
+      "promotion_threshold": 10
+    },
+    {
+      "id": "long_term",
+      "label": "Long-term Memory",
+      "ttl_seconds": null,
+      "capacity": 10000,
+      "promotion_threshold": null
+    }
+  ],
+  "consolidation": {
+    "interval_seconds": 3600,
+    "max_per_cycle": 100
+  }
+}

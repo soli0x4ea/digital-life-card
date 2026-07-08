@@ -1,0 +1,19 @@
+{
+  "protocol_version": "1.0.0",
+  "card_id": "demo-l2",
+  "card_name": "Demo L2 Companion",
+  "complexity_level": "L2",
+  "author": "DLC Framework",
+  "created_at": "2026-07-08",
+  "updated_at": "2026-07-08",
+  "description": "L2 demo card with full engine + memory + LWS behavior system.",
+  "modules": {
+    "identity": {"enabled": true, "profile": "identity/profile.json", "personality": "identity/personality.json", "speech": null},
+    "body": {"enabled": true, "anatomy": "body/anatomy.json", "zones": null},
+    "engine": {"enabled": true, "entities": "engine/entities.json", "modifiers": "engine/modifiers.json", "thresholds": "engine/thresholds.json", "narratives": "engine/narratives.json"},
+    "memory": {"enabled": true, "architecture": "memory/architecture.json", "schedule": "memory/schedule.json"},
+    "behavior": {"enabled": true, "lws_rules": "behavior/lws_rules.json"},
+    "interaction": {"enabled": false},
+    "vault": {"enabled": false}
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "body_model": "generic_humanoid",
+  "regions": [
+    {
+      "id": "head",
+      "name": "头部",
+      "state_levels": [
+        { "level": 0, "name": "正常" },
+        { "level": 1, "name": "轻微不适" },
+        { "level": 2, "name": "明显不适" },
+        { "level": 3, "name": "严重不适" }
+      ],
+      "sensitivity": 0.3
+    },
+    {
+      "id": "torso",
+      "name": "躯干",
+      "state_levels": [
+        { "level": 0, "name": "正常" },
+        { "level": 1, "name": "紧张" },
+        { "level": 2, "name": "痉挛" }
+      ],
+      "sensitivity": 0.6,
+      "pairs_with": null
+    },
+    {
+      "id": "left_arm",
+      "name": "左臂",
+      "state_levels": [
+        { "level": 0, "name": "正常" },
+        { "level": 1, "name": "麻木" }
+      ],
+      "sensitivity": 0.4,
+      "pairs_with": "right_arm"
+    },
+    {
+      "id": "right_arm",
+      "name": "右臂",
+      "state_levels": [
+        { "level": 0, "name": "正常" },
+        { "level": 1, "name": "麻木" }
+      ],
+      "sensitivity": 0.4,
+      "pairs_with": "left_arm"
+    }
+  ],
+  "initial_state": {
+    "head": 0,
+    "torso": 0
+  },
+  "decay_rate": 0.1
+}

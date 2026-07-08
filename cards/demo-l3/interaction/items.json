@@ -1,0 +1,52 @@
+{
+  "items": [
+    {
+      "id": "item_potion",
+      "name": "恢复药剂",
+      "description": "减少 Metric A 10点",
+      "type": "consumable",
+      "effects": [{"type": "modifier", "modifier_id": "mod_eg_sv_shift", "intensity": 1}],
+      "max_quantity": 20,
+      "use_cooldown_seconds": 10,
+      "rarity": "common"
+    },
+    {
+      "id": "item_charm",
+      "name": "幸运护符",
+      "description": "装备后 Metric V 持续 +5",
+      "type": "equippable",
+      "effects": [{"type": "modifier", "modifier_id": "mod_eg_av_add", "intensity": 1}],
+      "max_quantity": 1,
+      "rarity": "rare"
+    },
+    {
+      "id": "item_badge",
+      "name": "永久徽章",
+      "description": "永久道具，不可消耗",
+      "type": "permanent",
+      "effects": [{"type": "modifier", "modifier_id": "mod_eg_av_add", "intensity": 0.5}],
+      "max_quantity": 1,
+      "rarity": "legendary"
+    },
+    {
+      "id": "item_elixir",
+      "name": "万能灵药",
+      "description": "稀有消耗品，冷却5秒",
+      "type": "consumable",
+      "effects": [{"type": "modifier", "modifier_id": "mod_eg_sv_shift", "intensity": 2}],
+      "max_quantity": 10,
+      "use_cooldown_seconds": 5,
+      "rarity": "epic"
+    },
+    {
+      "id": "item_scroll",
+      "name": "知识卷轴",
+      "description": "罕见消耗品，无冷却",
+      "type": "consumable",
+      "effects": [{"type": "modifier", "modifier_id": "mod_eg_av_add", "intensity": 0.3}],
+      "max_quantity": 50,
+      "use_cooldown_seconds": 0,
+      "rarity": "uncommon"
+    }
+  ]
+}
