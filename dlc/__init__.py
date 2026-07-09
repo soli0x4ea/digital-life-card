@@ -43,7 +43,7 @@ from dlc.engine import (
 # P2: Memory (v1.1 dual-core linear) + LWS + Scheduler
 from dlc.memory import (
     ChatlogStore, TimelineStore, MemorySearch,
-    import_chatlog, import_timeline,
+    import_chatlog, import_timeline, record_chat,
 )
 from dlc.behavior import LWSLoader, Ruleset, RuleConfig, evaluate_active_rules, generate_lws_prompt
 from dlc.scheduler import ScheduleLoader, ScheduleConfig, ScheduleEngine
@@ -87,7 +87,7 @@ __all__ = [
     "render_command_narrative",
     # P2 Memory (v1.1)
     "ChatlogStore", "TimelineStore", "MemorySearch",
-    "import_chatlog", "import_timeline",
+    "import_chatlog", "import_timeline", "record_chat",
     # P2 LWS
     "LWSLoader", "Ruleset", "RuleConfig", "evaluate_active_rules", "generate_lws_prompt",
     # P2 Scheduler

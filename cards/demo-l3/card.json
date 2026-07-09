@@ -11,7 +11,7 @@
     "identity": {"enabled": true, "profile": "identity/profile.json", "personality": "identity/personality.json", "speech": null},
     "body": {"enabled": true, "anatomy": "body/anatomy.json", "zones": null},
     "engine": {"enabled": true, "entities": "engine/entities.json", "modifiers": "engine/modifiers.json", "thresholds": "engine/thresholds.json", "narratives": "engine/narratives.json"},
-    "memory": {"enabled": true, "architecture": "memory/architecture.json", "schedule": "memory/schedule.json"},
+    "memory": {"enabled": true},
     "behavior": {"enabled": true, "lws_rules": "behavior/lws_rules.json"},
     "interaction": {"enabled": true, "commands": "interaction/commands.json", "items": "interaction/items.json"},
     "vault": {"enabled": true, "secrets": "vault/secrets.json"}

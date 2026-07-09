@@ -28,9 +28,7 @@
       "narratives": "engine/narratives.json"
     },
     "memory": {
-      "enabled": true,
-      "architecture": "memory/architecture.json",
-      "schedule": "memory/schedule.json"
+      "enabled": true
     },
     "behavior": {
       "enabled": true,

@@ -1,4 +1,4 @@
-"""Phase 3A: Command system tests — P3-01 ~ P3-03."""
+"""Phase 3A: Command system tests — P3-01 ~ P3-03 (v2.6.0)."""
 
 import unittest, json, os, sys, tempfile, shutil
 
@@ -10,7 +10,7 @@ _EFIX = os.path.join(_HERE, "fixtures", "engine")
 
 
 def _setup_cmd_env():
-    """Create engine + memory for command execution tests."""
+    """Create engine (no memory store) for command execution tests."""
     from dlc.engine.entity import EntityEngine, EntityState
     tmp = tempfile.mkdtemp()
     eeng = EntityEngine(state_dir=os.path.join(tmp, "state"))
@@ -21,20 +21,13 @@ def _setup_cmd_env():
         fl = {k: 0 for k in ecfg.get("flags", {})}
         eeng.save(EntityState(entity_id=eid, channels=ch, flags=fl))
     state = eeng.load("e_g")
-    # Memory
-    from dlc.memory.core import MemoryArchitecture, LayerConfig, MemoryStore
-    arch = MemoryArchitecture(
-        layers=[LayerConfig("working", "WM", 3600, 100, 5)],
-        consolidation={"interval_seconds": 3600, "max_per_cycle": 10}
-    )
-    store = MemoryStore(os.path.join(tmp, "mem"), arch)
     # Modifiers
     with open(os.path.join(_EFIX, "modifiers.json")) as f:
         modifiers = json.load(f)["modifiers"]
     # Narratives
     with open(os.path.join(_EFIX, "narratives.json")) as f:
         narratives = json.load(f)["events"]
-    return tmp, state, store, modifiers, narratives
+    return tmp, state, modifiers, narratives
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -46,7 +39,7 @@ class TestCommandLoader(unittest.TestCase):
     def test_01_load_commands(self):
         from dlc.interaction.commands import CommandLoader
         cfg = CommandLoader(_FIX).load()
-        self.assertEqual(len(cfg.commands), 4)
+        self.assertEqual(len(cfg.commands), 3)
 
     def test_02_command_fields(self):
         from dlc.interaction.commands import CommandLoader
@@ -60,7 +53,7 @@ class TestCommandLoader(unittest.TestCase):
         from dlc.interaction.commands import CommandLoader
         cfg = CommandLoader(_FIX).load()
         self.assertEqual(cfg.commands[1].cooldown_seconds, 30)
-        self.assertEqual(cfg.commands[3].cooldown_seconds, 60)
+        self.assertEqual(cfg.commands[2].cooldown_seconds, 60)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -92,7 +85,6 @@ class TestTriggerMatcher(unittest.TestCase):
 
     def test_04_first_match_wins(self):
         from dlc.interaction.commands import match_command
-        # "恢复" appears in cmd_heal, should find it
         cmd = match_command("恢复", self.cfg)
         self.assertIsNotNone(cmd)
         self.assertEqual(cmd.id, "cmd_heal")
@@ -105,7 +97,7 @@ class TestTriggerMatcher(unittest.TestCase):
 class TestCommandExecutor(unittest.TestCase):
 
     def setUp(self):
-        self.tmp, self.state, self.store, self.modifiers, self.narratives = _setup_cmd_env()
+        self.tmp, self.state, self.modifiers, self.narratives = _setup_cmd_env()
 
     def tearDown(self):
         shutil.rmtree(self.tmp, ignore_errors=True)
@@ -115,7 +107,7 @@ class TestCommandExecutor(unittest.TestCase):
         old = self.state.channels["ch_g_a"]
         result = execute_command(
             {"type": "modifier", "modifier_id": "mod_eg_av_add", "intensity": 1},
-            self.state, self.store, self.modifiers, self.narratives
+            self.state, self.modifiers, self.narratives
         )
         self.assertTrue(result.success)
         self.assertNotEqual(self.state.channels["ch_g_a"], old)
@@ -124,26 +116,16 @@ class TestCommandExecutor(unittest.TestCase):
         from dlc.interaction.commands import execute_command
         result = execute_command(
             {"type": "narrative", "event_id": "ev_g_a_warn"},
-            self.state, self.store, self.modifiers, self.narratives
+            self.state, self.modifiers, self.narratives
         )
         self.assertTrue(result.success)
         self.assertIsNotNone(result.output)
 
-    def test_03_memory_effect(self):
-        from dlc.interaction.commands import execute_command
-        result = execute_command(
-            {"type": "memory", "layer": "working", "template": "测试：{input}", "input": "hello"},
-            self.state, self.store, self.modifiers, self.narratives
-        )
-        self.assertTrue(result.success)
-        entries = self.store.search("测试")
-        self.assertEqual(len(entries), 1)
-
-    def test_04_state_flag_set_effect(self):
+    def test_03_state_flag_set_effect(self):
         from dlc.interaction.commands import execute_command
         result = execute_command(
             {"type": "state", "action": "flag_set", "flag": "ch_g_flag_01"},
-            self.state, self.store, self.modifiers, self.narratives
+            self.state, self.modifiers, self.narratives
         )
         self.assertTrue(result.success)
         self.assertEqual(self.state.flags["ch_g_flag_01"], 1)
@@ -156,11 +138,10 @@ class TestCommandExecutor(unittest.TestCase):
 class TestCommandCooldown(unittest.TestCase):
 
     def test_01_within_cooldown_blocked(self):
-        from dlc.interaction.commands import match_command, execute_command, _is_cooling, _mark_used
+        from dlc.interaction.commands import _is_cooling, _mark_used
         from dlc.interaction.commands import CommandLoader
         cfg = CommandLoader(_FIX).load()
         cmd = cfg.commands[0]  # cooldown_seconds=5
-        # First use
         _mark_used(cmd.id, tick=0)
         self.assertTrue(_is_cooling(cmd, tick=1))
 
@@ -176,7 +157,7 @@ class TestCommandCooldown(unittest.TestCase):
         from dlc.interaction.commands import _is_cooling
         from dlc.interaction.commands import CommandLoader
         cfg = CommandLoader(_FIX).load()
-        cmd = cfg.commands[2]  # no cooldown
+        cmd = cfg.commands[1]  # no cooldown (cmd_set_flag is index 2)
         self.assertFalse(_is_cooling(cmd, tick=0))
 
 
@@ -224,7 +205,6 @@ class TestHelpSystem(unittest.TestCase):
         text = generate_help(self.cfg)
         self.assertIn("cmd_status", text)
         self.assertIn("cmd_heal", text)
-        self.assertIn("cmd_remember", text)
 
     def test_02_help_includes_triggers(self):
         from dlc.interaction.commands import generate_help
@@ -318,7 +298,6 @@ class TestConsumableLogic(unittest.TestCase):
     def setUpClass(cls):
         from dlc.interaction.items import ItemLoader
         cls.items = ItemLoader(_FIX).load()
-        # Find items by id
         cls.potion = next(i for i in cls.items if i.id == "item_potion")
         cls.elixir = next(i for i in cls.items if i.id == "item_elixir")
         cls.scroll = next(i for i in cls.items if i.id == "item_scroll")
@@ -553,7 +532,6 @@ class TestInventoryPersistence(unittest.TestCase):
         inv2 = Inventory(state_dir=self.tmp)
         inv2.register(elixir)
         inv2.load()
-        # cooldown still active if loaded within cooldown window
         r = inv2.use("item_elixir", _now=101.0)
         self.assertFalse(r)
 

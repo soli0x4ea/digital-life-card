@@ -19,14 +19,6 @@
       "cooldown_seconds": 30
     },
     {
-      "id": "cmd_remember",
-      "triggers": ["记住", "remember", "记录"],
-      "description": "写入一条记忆",
-      "effects": [
-        {"type": "memory", "layer": "working", "template": "用户说：{input}"}
-      ]
-    },
-    {
       "id": "cmd_set_flag",
       "triggers": ["激活", "activate"],
       "description": "设置一个 flag",

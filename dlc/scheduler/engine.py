@@ -58,8 +58,7 @@ class TaskResult:
 class ScheduleEngine:
     """Tick-based task scheduler with built-in task dispatch.
 
-    Supports registering external handlers (engine, memory store, etc.)
-    for task types: state_decay, memory_consolidate, flag_cleanup, passive_action.
+    Supports task types: state_decay, flag_cleanup, passive_action.
     """
 
     def __init__(self, config: ScheduleConfig):
@@ -68,15 +67,11 @@ class ScheduleEngine:
         self._last_fired: dict[str, int] = {}
         self._state: EntityState | None = None
         self._entities_cfg: dict = {}
-        self._memory_store = None
 
     def set_state(self, state: EntityState, entities_cfg: dict = None):
         self._state = state
         if entities_cfg:
             self._entities_cfg = entities_cfg
-
-    def set_memory(self, store):
-        self._memory_store = store
 
     def tick(self) -> list[TaskResult]:
         self.tick_count += 1
@@ -98,9 +93,6 @@ class ScheduleEngine:
                 if self._state.entity_id == eid:
                     apply_decay(self._state, ecfg)
                     return "decay_applied"
-        elif ttype == "memory_consolidate" and self._memory_store:
-            summary = self._memory_store.consolidate()
-            return f"consolidated: {summary}"
         elif ttype == "flag_cleanup" and self._state:
             n = _task_flag_cleanup(self._state)
             return f"flags_cleaned: {n}"

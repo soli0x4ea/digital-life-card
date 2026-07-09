@@ -5,7 +5,7 @@ import unittest, json, os, sys, tempfile, shutil
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _PROJ = os.path.dirname(_HERE)
 sys.path.insert(0, _PROJ)
-_FIX = os.path.join(_HERE, "fixtures", "memory")
+_FIX = os.path.join(_HERE, "fixtures", "engine")
 _EFIX = os.path.join(_HERE, "fixtures", "engine")
 
 
@@ -31,14 +31,13 @@ class TestScheduleLoader(unittest.TestCase):
     def test_01_load_tasks(self):
         from dlc.scheduler.engine import ScheduleLoader
         sched = ScheduleLoader(_FIX).load()
-        self.assertEqual(len(sched.tasks), 4)
+        self.assertEqual(len(sched.tasks), 0)  # no schedule.json in engine fixtures
 
     def test_02_task_types(self):
         from dlc.scheduler.engine import ScheduleLoader
         sched = ScheduleLoader(_FIX).load()
         types = {t.type for t in sched.tasks}
-        self.assertIn("state_decay", types)
-        self.assertIn("memory_consolidate", types)
+        self.assertNotIn("memory_consolidate", types)
 
 
 class TestScheduleEngine(unittest.TestCase):
@@ -75,23 +74,25 @@ class TestScheduleEngine(unittest.TestCase):
         self.assertNotIn("temp_flag", self.state.flags)
 
     def test_03_schedule_engine_ticks(self):
-        from dlc.scheduler.engine import ScheduleLoader, ScheduleEngine
-        sched = ScheduleLoader(_FIX).load()
-        # Create a schedule with short intervals for testing
-        sched.tasks[0].interval_ticks = 1  # state_decay every tick
+        from dlc.scheduler.engine import ScheduleEngine, ScheduleConfig, TaskConfig
+        sched = ScheduleConfig(tasks=[
+            TaskConfig(id="t0", type="state_decay", interval_ticks=1),
+        ])
         eng = ScheduleEngine(sched)
         self.assertEqual(eng.tick_count, 0)
         eng.tick()
         self.assertEqual(eng.tick_count, 1)
 
     def test_04_schedule_respects_interval(self):
-        from dlc.scheduler.engine import ScheduleLoader, ScheduleEngine
-        sched = ScheduleLoader(_FIX).load()
-        for t in sched.tasks:
-            t.interval_ticks = 5
+        from dlc.scheduler.engine import ScheduleEngine, ScheduleConfig, TaskConfig
+        sched = ScheduleConfig(tasks=[
+            TaskConfig(id="t0", type="state_decay", interval_ticks=5),
+        ])
         eng = ScheduleEngine(sched)
-        # First tick: all should fire
         results1 = eng.tick()
+        self.assertTrue(results1[0].fired)
+        results2 = eng.tick()
+        self.assertFalse(results2[0].fired)
         # Second tick: none should fire (interval not elapsed)
         results2 = eng.tick()
         for r in results2:

@@ -172,9 +172,7 @@ class TestMemorySchema(unittest.TestCase):
 
     def test_01_valid_architecture(self):
         from dlc.validate import validate_module
-        data = {"enabled": True,
-                "architecture": "memory/architecture.json",
-                "schedule": "memory/schedule.json"}
+        data = {"enabled": True}
         errors = validate_module(data, "memory.schema.json")
         self.assertEqual(errors, [])
 

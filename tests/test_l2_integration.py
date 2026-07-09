@@ -1,4 +1,4 @@
-"""Phase 2E: L2 Integration tests — P2-28 ~ P2-30."""
+"""Phase 2E: L2 Integration tests — P2-28 ~ P2-30 (v2.6.0)."""
 
 import unittest, os, sys, tempfile, shutil, json
 
@@ -39,7 +39,7 @@ class TestL2CardSmoke(unittest.TestCase):
 
 
 class TestL2FullPipeline(unittest.TestCase):
-    """P2-30: L2 end-to-end pipeline."""
+    """P2-30: L2 end-to-end pipeline (dual-core memory)."""
 
     @classmethod
     def setUpClass(cls):
@@ -51,7 +51,6 @@ class TestL2FullPipeline(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
         from dlc.engine.entity import EntityEngine, EntityState
-        from dlc.memory.core import MemoryArchitecture, LayerConfig, MemoryStore
         # Engine
         self.eeng = EntityEngine(state_dir=os.path.join(self.tmp, "state"))
         state = EntityState(entity_id="e_g",
@@ -59,12 +58,11 @@ class TestL2FullPipeline(unittest.TestCase):
                            flags={"ch_g_flag_01": 0})
         self.eeng.save(state)
         self.state = self.eeng.load("e_g")
-        # Memory
-        arch = MemoryArchitecture(
-            layers=[LayerConfig("working", "WM", 3600, 100, 5)],
-            consolidation={"interval_seconds": 3600, "max_per_cycle": 10}
-        )
-        self.store = MemoryStore(os.path.join(self.tmp, "mem"), arch)
+        # Memory (dual-core)
+        from dlc.memory import ChatlogStore, TimelineStore, MemorySearch
+        self.chatlog = ChatlogStore(os.path.join(self.tmp, "chatlog"))
+        self.timeline = TimelineStore(os.path.join(self.tmp, "timeline"))
+        self.search = MemorySearch(self.chatlog, self.timeline)
         # LWS
         from dlc.behavior.lws import LWSLoader
         self.ruleset = LWSLoader(_CFIX_BEH).load()
@@ -88,9 +86,12 @@ class TestL2FullPipeline(unittest.TestCase):
         self.assertGreater(len(events), 0)
 
     def test_03_memory_writes_and_searches(self):
-        self.store.write("working", "刺激事件：通道A升至90", tags=["stimulus"])
-        results = self.store.search("刺激")
-        self.assertEqual(len(results), 1)
+        from dlc.memory import record_chat
+        record_chat(self.chatlog, self.timeline,
+                    user_id="user", user_message="刺激事件：通道A升至90",
+                    assistant_id="bot", assistant_message="收到，通道A已在高位")
+        results = self.search.search("刺激")
+        self.assertGreater(len(results), 0)
 
     def test_04_lws_evaluates_and_generates_prompt(self):
         from dlc.behavior.lws import evaluate_active_rules, generate_lws_prompt
@@ -99,7 +100,6 @@ class TestL2FullPipeline(unittest.TestCase):
         self.assertIn("[核心原则]", prompt)
 
     def test_05_full_pipeline_roundtrip(self):
-        """刺激→状态→阈值→叙事→记忆→LWS 完整闭环"""
         from dlc.engine.modifier import apply_modifier
         import json
         with open(os.path.join(_CFIX_ENG, "thresholds.json")) as f:
@@ -109,6 +109,7 @@ class TestL2FullPipeline(unittest.TestCase):
         with open(os.path.join(_CFIX_ENG, "narratives.json")) as f:
             narratives = json.load(f)["events"]
         from dlc.behavior.lws import evaluate_active_rules, generate_lws_prompt
+        from dlc.memory import record_chat
 
         # 1. Apply stimulus
         apply_modifier(self.state, self.modifiers_cfg["mod_eg_av_add"])
@@ -116,15 +117,17 @@ class TestL2FullPipeline(unittest.TestCase):
         events = check_thresholds(self.state, thresholds)
         # 3. Render narratives
         texts = render_events(events, narratives, state=self.state)
-        # 4. Write to memory
+        # 4. Write to memory via record_chat
         for t in texts:
-            self.store.write("working", t, tags=["event"])
+            record_chat(self.chatlog, self.timeline,
+                        user_id="user", user_message="刺激",
+                        assistant_id="bot", assistant_message=str(t))
         # 5. Generate LWS prompt
         active = evaluate_active_rules(self.ruleset, self.state)
         prompt = generate_lws_prompt(self.ruleset, active, state=self.state)
         self.assertIn("[核心原则]", prompt)
-        # Memory should have entries
-        self.assertGreater(len(self.store.search("")), 0)
+        # Chatlog should have entries
+        self.assertGreater(self.chatlog.count_day(), 0)
 
 
 if __name__ == "__main__":

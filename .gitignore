@@ -1,7 +1,7 @@
 # DLC Protocol — gitignore
 
 # Runtime data (generated at runtime, not committed)
-MEMORY/
+cards/*/MEMORY/
 state/
 *.jsonl
 

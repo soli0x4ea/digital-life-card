@@ -12,7 +12,7 @@
     "identity": { "enabled": true, "profile": "identity/profile.json", "personality": "identity/personality.json", "speech": null },
     "body": { "enabled": true, "anatomy": "body/anatomy.json", "zones": null },
     "engine": { "enabled": true, "entities": "engine/entities.json", "modifiers": "engine/modifiers.json", "thresholds": "engine/thresholds.json", "narratives": "engine/narratives.json" },
-    "memory": { "enabled": false, "architecture": null, "schedule": null },
+    "memory": { "enabled": false },
     "behavior": { "enabled": false, "lws_rules": null },
     "interaction": { "enabled": false, "commands": null, "items": null },
     "vault": { "enabled": false, "secrets": null }

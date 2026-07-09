@@ -9,7 +9,7 @@ MODULE_SUBKEYS = {
     "identity":    ["profile", "personality", "speech"],
     "body":        ["anatomy", "zones"],
     "engine":      ["entities", "modifiers", "thresholds", "narratives"],
-    "memory":      ["architecture", "schedule"],
+    "memory":      [],
     "behavior":    ["lws_rules"],
     "interaction": ["commands", "items"],
     "vault":       ["secrets"],

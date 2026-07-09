@@ -107,16 +107,15 @@ class CommandResult:
 def execute_command(
     effect: dict,
     state: EntityState,
-    memory_store,
     modifiers_cfg: dict,
     narratives_cfg: dict,
+    entity_cfg: dict | None = None,
 ) -> CommandResult:
     """Execute a single command effect against the runtime state.
 
-    Supports 5 effect types:
+    Supports 4 effect types:
     - modifier: apply a modifier by id
     - narrative: render a narrative event
-    - memory: write to memory store
     - state: direct flag_set/flag_unset
     - command_narrative (v2.5.0): assemble narrative via command pipeline
     """
@@ -130,7 +129,7 @@ def execute_command(
             if not mod:
                 return CommandResult(success=False, error=f"modifier {mod_id} not found")
             intensity = effect.get("intensity", 1.0)
-            r = apply_modifier(state, mod, intensity=float(intensity))
+            r = apply_modifier(state, mod, intensity=float(intensity), entity_cfg=entity_cfg)
             result.success = r.applied
             result.output = r.note
 
@@ -147,15 +146,6 @@ def execute_command(
             text = render_event(event_id, narratives_cfg, "warning", state)
             result.success = bool(text)
             result.output = text
-
-        elif etype == "memory":
-            layer = effect.get("layer", "working")
-            template = effect.get("template", "")
-            user_input = effect.get("input", "")
-            content = template.replace("{input}", user_input)
-            memory_store.write(layer, content)
-            result.success = True
-            result.output = content
 
         elif etype == "state":
             action = effect.get("action")
