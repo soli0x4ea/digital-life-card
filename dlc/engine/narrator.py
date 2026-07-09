@@ -43,40 +43,63 @@ def render_event(
     narratives: dict[str, dict],
     severity: str = "warning",
     state: EntityState | None = None,
+    before_state: EntityState | None = None,
 ) -> str:
     """Render narrative text for a triggered threshold event.
 
+    Lookup order (G3):
+      1. narratives["events"][event_id] — single-text (backward compatible)
+      2. narratives["command_assembly"][event_id] — pipeline render (G3)
+
     Args:
         event_id: The event ID from threshold config.
-        narratives: The narratives.json "events" dict.
+        narratives: The full narratives.json dict (with "events" and "command_assembly").
         severity: Event severity.
         state: Optional entity state for condition checking (P2-06).
+        before_state: Optional snapshot before changes for {before_xxx}/{delta_xxx} (G3).
 
     Returns:
         Narrative text string, or "" if the event has no config, no texts,
         or its condition is not met.
     """
-    ev = narratives.get(event_id)
-    if not ev:
-        return ""
+    # Path 1: Standard single-text event (backward compatible)
+    # Handle both bare events dict and full narratives dict
+    if "events" in narratives:
+        events_dict = narratives["events"]
+        command_assembly = narratives.get("command_assembly", {})
+    else:
+        events_dict = narratives
+        command_assembly = {}
+    ev = events_dict.get(event_id)
+    if ev:
+        if not _check_condition(ev, state):
+            return ""
+        tier = _SEVERITY_TIER.get(severity, "intense")
+        texts = ev.get("texts", {})
+        return texts.get(tier) or texts.get("medium") or texts.get("mild") or ""
 
-    if not _check_condition(ev, state):
-        return ""
+    # Path 2: Command assembly pipeline render (G3)
+    if event_id in command_assembly:
+        return render_command_narrative(
+            event_id, state, narratives,
+            before_state=before_state,
+            _event_severity=severity,
+        )
 
-    tier = _SEVERITY_TIER.get(severity, "intense")
-    texts = ev.get("texts", {})
-    return texts.get(tier) or texts.get("medium") or texts.get("mild") or ""
+    return ""
 
 
 def render_events(
     events: list,
     narratives: dict[str, dict],
     state: EntityState | None = None,
+    before_state: EntityState | None = None,
 ) -> list[str]:
     """P2-07+P2-08: Render multiple threshold events with priority sorting."""
     scored = []
+    events_dict = narratives.get("events", narratives) if isinstance(narratives, dict) else {}
     for ev in events:
-        ev_cfg = narratives.get(ev.event_id, {})
+        ev_cfg = events_dict.get(ev.event_id, {})
         priority = ev_cfg.get("priority", 0)
         scored.append((priority, ev))
 
@@ -84,7 +107,8 @@ def render_events(
 
     result = []
     for _, ev in scored:
-        text = render_event(ev.event_id, narratives, ev.event_type, state)
+        text = render_event(ev.event_id, narratives, ev.event_type, state,
+                            before_state=before_state)
         if text:
             result.append(text)
     return result
@@ -97,12 +121,17 @@ def render_events(
 # ── M5-01: Variable interpolation ─────────────────────────────
 
 def interpolate(template: str, state: EntityState | None = None,
+                before_state: EntityState | None = None,
+                delta_precision: int = 1,
                 **extra_vars) -> str:
     """Replace {key} placeholders with values from state or extra_vars.
 
     Supported placeholders:
         {channel_xxx}    — value of state.channels["xxx"]
         {flag_xxx}       — value of state.flags["xxx"] or 0
+        {before_xxx}     — channel xxx value BEFORE changes (G2)
+        {after_xxx}      — channel xxx value AFTER changes (G2)
+        {delta_xxx}      — channel xxx change: after - before (G2)
         {before}         — modifier before-value (from extra_vars)
         {after}          — modifier after-value (from extra_vars)
         {delta}          — after - before (from extra_vars)
@@ -111,9 +140,15 @@ def interpolate(template: str, state: EntityState | None = None,
         {variant}        — variant label (from extra_vars)
         {custom}         — any key passed via **extra_vars
 
+    Format precision (4.1):
+        {delta_xxx}   defaults to +N.M format (delta_precision decimal places).
+        Pass delta_precision=0 for integer deltas like +30 instead of +30.0.
+
     Args:
         template: String with {placeholder} markers.
-        state: EntityState for channel/flag lookups.
+        state: EntityState for channel/flag lookups (current/after values).
+        before_state: Optional snapshot before changes for {before_xxx}/{delta_xxx} (G2).
+        delta_precision: Decimal places for before/after/delta values (default 1).
         **extra_vars: Additional key=value pairs for interpolation.
 
     Returns:
@@ -134,6 +169,17 @@ def interpolate(template: str, state: EntityState | None = None,
         for f_id, val in state.flags.items():
             result = result.replace(f"{{flag_{f_id}}}", str(val))
 
+    # G2: Channel-level before/after/delta: {before_pain}, {after_pleasure}, {delta_shame}
+    if before_state is not None and before_state.channels and state and state.channels:
+        fmt_spec = f".{delta_precision}f"
+        for ch_id in state.channels:
+            before_val = before_state.channels.get(ch_id, 0.0)
+            after_val = state.channels.get(ch_id, 0.0)
+            delta_val = after_val - before_val
+            result = result.replace(f"{{before_{ch_id}}}", f"{before_val:{fmt_spec}}")
+            result = result.replace(f"{{after_{ch_id}}}", f"{after_val:{fmt_spec}}")
+            result = result.replace(f"{{delta_{ch_id}}}", f"{delta_val:+{fmt_spec}}")
+
     # Extra vars
     for key, val in extra_vars.items():
         result = result.replace(f"{{{key}}}", str(val))
@@ -148,14 +194,18 @@ def range_select(
     channel: str,
     brackets: list,
     texts: list[str],
+    before_state: EntityState | None = None,
 ) -> str:
     """Select text based on which bracket the channel value falls into.
 
     Args:
-        state: EntityState whose channels[channel] is read.
+        state: EntityState whose channels[channel] is read (current/after values).
         channel: Channel name to read.
         brackets: List of [lo, hi] pairs (None = no bound).
         texts: Corresponding texts, len(texts) == len(brackets).
+        before_state: Optional snapshot before changes (4.2).
+            When provided, reads the channel value from before_state instead of state,
+            allowing range selection based on pre-change values.
 
     Returns:
         The text from the first matching bracket, or "" if no match.
@@ -166,7 +216,8 @@ def range_select(
             texts=["empty", "half", "full"])
         # candy_count=3 → "empty", candy_count=7 → "half", candy_count=15 → "full"
     """
-    val = (state.channels or {}).get(channel, 0)
+    source = before_state if before_state is not None else state
+    val = (source.channels or {}).get(channel, 0)
 
     for i, (lo, hi) in enumerate(brackets):
         if lo is not None and val < lo:
@@ -222,6 +273,7 @@ def conditional_append(
     conditions: list[dict],
     texts: list[str],
     state: EntityState | None = None,
+    before_state: EntityState | None = None,
 ) -> str:
     """Append text segments when their conditions are met.
 
@@ -229,7 +281,10 @@ def conditional_append(
         base: Starting text.
         conditions: List of condition dicts, one per text.
         texts: Text segments to conditionally append.
-        state: EntityState for evaluation.
+        state: EntityState for evaluation (current/after values).
+        before_state: Optional snapshot before changes (4.2).
+            When provided, conditions are evaluated against before_state
+            instead of state, enabling "was X before the change" logic.
 
     Returns:
         base + all conditionally-appended texts, joined with newlines.
@@ -242,12 +297,13 @@ def conditional_append(
             state=state)
         # pain=60, bound=1 → "ate candy\nit still hurts\nbound and sweet"
     """
-    if not state:
+    eval_state = before_state if before_state is not None else state
+    if not eval_state:
         return base
 
     parts = [base] if base else []
     for i, cond in enumerate(conditions):
-        if i < len(texts) and _eval_cond(cond, state):
+        if i < len(texts) and _eval_cond(cond, eval_state):
             parts.append(texts[i])
 
     return "\n".join(p for p in parts if p)
@@ -295,6 +351,8 @@ def render_command_narrative(
     cmd_id: str,
     state: EntityState,
     narratives_cfg: dict,
+    before_state: EntityState | None = None,
+    delta_precision: int = 1,
     **extra_vars,
 ) -> str:
     """Assemble narrative text for a command using the four atomic ops.
@@ -314,6 +372,8 @@ def render_command_narrative(
         cmd_id: Command ID (matches command_assembly key).
         state: Entity state for channel/flag reads.
         narratives_cfg: Full narratives.json dict.
+        before_state: Optional snapshot before changes for {before_xxx}/{delta_xxx} (G2).
+        delta_precision: Decimal places for before/after/delta values (4.1, default 1).
         **extra_vars: Extra interpolation variables.
 
     Returns:
@@ -329,7 +389,8 @@ def render_command_narrative(
     for step in pipeline:
         # Plain string → interpolate
         if isinstance(step, str):
-            text = interpolate(step, state, **extra_vars)
+            text = interpolate(step, state, before_state=before_state,
+                               delta_precision=delta_precision, **extra_vars)
             if text:
                 lines.append(text)
             continue
@@ -340,7 +401,7 @@ def render_command_narrative(
             ch = step.get("channel", "")
             brackets = step.get("brackets", [])
             texts = step.get("texts", [])
-            text = range_select(state, ch, brackets, texts)
+            text = range_select(state, ch, brackets, texts, before_state=before_state)
             if text:
                 lines.append(text)
 
@@ -351,8 +412,10 @@ def render_command_narrative(
             texts = step.get("texts", [])
             if not isinstance(ifs, list):
                 ifs = [ifs]
+            # 4.2: evaluate conditions against before_state when available
+            eval_state = before_state if before_state is not None else state
             for i, cond in enumerate(ifs):
-                if i < len(texts) and _eval_cond(cond, state):
+                if i < len(texts) and _eval_cond(cond, eval_state):
                     parts.append(texts[i])
             line = "\n".join(p for p in parts if p)
             if line:
@@ -362,19 +425,23 @@ def render_command_narrative(
             variants = step.get("variants", [])
             text, variant_id = weighted_random(variants)
             if text:
-                text = interpolate(text, state, variant=variant_id, **extra_vars)
+                text = interpolate(text, state, before_state=before_state,
+                                   delta_precision=delta_precision,
+                                   variant=variant_id, **extra_vars)
                 lines.append(text)
 
         elif op == "interp":
             template = step.get("template", "")
-            text = interpolate(template, state, **extra_vars)
+            text = interpolate(template, state, before_state=before_state,
+                               delta_precision=delta_precision, **extra_vars)
             if text:
                 lines.append(text)
 
         elif op == "event":
             event_id = step.get("event_id", "")
             severity = step.get("severity", "warning")
-            text = render_event(event_id, narratives_cfg, severity, state)
+            text = render_event(event_id, narratives_cfg, severity, state,
+                                before_state=before_state)
             if text:
                 lines.append(text)
 

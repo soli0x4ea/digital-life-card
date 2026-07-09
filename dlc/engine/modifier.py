@@ -64,18 +64,48 @@ def _exec_multiply(state: EntityState, channel: str, effect: dict, intensity: fl
     return state.channels[channel] - old
 
 
+# ═══════════════════════════════════════════════════════════════
+# G1: Channel value clamping
+# ═══════════════════════════════════════════════════════════════
+
+def clamp_channel(state: EntityState, channel: str, entity_cfg: dict) -> None:
+    """Clip a channel value to the min/max bounds defined in entity config.
+
+    Reads entity_cfg["channels"][channel]["min"] and ["max"].
+    If both are None/absent, does nothing.
+    """
+    ch_cfg = (entity_cfg or {}).get("channels", {}).get(channel, {})
+    min_val = ch_cfg.get("min")
+    max_val = ch_cfg.get("max")
+    if min_val is None and max_val is None:
+        return
+    current = state.channels.get(channel, 0.0)
+    if min_val is not None and current < min_val:
+        state.channels[channel] = float(min_val)
+    elif max_val is not None and current > max_val:
+        state.channels[channel] = float(max_val)
+
+
 def apply_effect(
     state: EntityState,
     channel: str,
     effect: dict,
     intensity: float = 1.0,
+    entity_cfg: dict | None = None,
 ) -> float:
-    """Apply a single effect to a channel. Returns the delta applied."""
+    """Apply a single effect to a channel. Returns the delta applied.
+
+    If entity_cfg is provided, clamps the channel value to its min/max
+    after the effect is applied (G1).
+    """
     etype = effect.get("type", "")
     executor = _EFFECT_EXECUTORS.get(etype)
     if not executor:
         return 0.0
-    return executor(state, channel, effect, intensity)
+    delta = executor(state, channel, effect, intensity)
+    if entity_cfg is not None:
+        clamp_channel(state, channel, entity_cfg)
+    return delta
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -97,8 +127,13 @@ def apply_modifier(
     modifier_cfg: dict,
     intensity: float = 1.0,
     tick: int = 0,
+    entity_cfg: dict | None = None,
 ) -> ModifierResult:
-    """Apply a full modifier to entity state. Respects cooldown_ticks config."""
+    """Apply a full modifier to entity state. Respects cooldown_ticks config.
+
+    If entity_cfg is provided, channel values are clamped to their min/max
+    after each effect is applied (G1).
+    """
     result = ModifierResult(modifier_id=modifier_cfg.get("label", ""))
 
     # P2-04: Cooldown check
@@ -118,7 +153,7 @@ def apply_modifier(
     effects = modifier_cfg.get("effects", {})
     applied_any = False
     for channel, effect_cfg in effects.items():
-        delta = apply_effect(state, channel, effect_cfg, intensity)
+        delta = apply_effect(state, channel, effect_cfg, intensity, entity_cfg)
         if delta != 0.0 or ("type" in effect_cfg and effect_cfg["type"] not in ("unknown",)):
             result.deltas[channel] = delta
             applied_any = True
@@ -156,9 +191,11 @@ def _exec_state_set(state: EntityState, channel: str, effect: dict, intensity: f
     return delta
 
 
-def tick_timed_effects(state: EntityState) -> None:
+def tick_timed_effects(state: EntityState, entity_cfg: dict | None = None) -> None:
     """Decrement remaining ticks on all active state_set effects.
     Auto-restore original values when duration expires.
+
+    If entity_cfg is provided, restored values are clamped to min/max (G1).
     """
     effects = state.meta.get("_state_set", {})
     if not effects:
@@ -169,6 +206,8 @@ def tick_timed_effects(state: EntityState) -> None:
         data["remaining"] = data.get("remaining", 0) - 1
         if data["remaining"] <= 0:
             state.channels[channel] = data["original"]
+            if entity_cfg is not None:
+                clamp_channel(state, channel, entity_cfg)
             expired.append(channel)
 
     for ch in expired:

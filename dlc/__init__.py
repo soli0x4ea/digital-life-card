@@ -33,8 +33,11 @@ from dlc.body import (
 from dlc.engine import (
     EntityState, EntityEngine, apply_decay,
     ModifierResult, calc_delta, apply_effect, apply_flag_toggle, apply_modifier,
+    clamp_channel, tick_timed_effects,
     ThresholdEvent, check_thresholds,
-    render_event,
+    render_event, render_events,
+    interpolate, range_select, conditional_append, weighted_random,
+    render_command_narrative,
 )
 
 # P2: Memory (v1.1 dual-core linear) + LWS + Scheduler
@@ -77,8 +80,11 @@ __all__ = [
     # P1 Engine
     "EntityState", "EntityEngine", "apply_decay",
     "ModifierResult", "calc_delta", "apply_effect", "apply_flag_toggle", "apply_modifier",
+    "clamp_channel", "tick_timed_effects",
     "ThresholdEvent", "check_thresholds",
-    "render_event",
+    "render_event", "render_events",
+    "interpolate", "range_select", "conditional_append", "weighted_random",
+    "render_command_narrative",
     # P2 Memory (v1.1)
     "ChatlogStore", "TimelineStore", "MemorySearch",
     "import_chatlog", "import_timeline",

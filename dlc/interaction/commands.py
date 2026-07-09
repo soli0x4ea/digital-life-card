@@ -72,16 +72,24 @@ class CommandLoader:
 # ═══════════════════════════════════════════════════════════════
 
 def match_command(user_input: str, cmd_set: CommandSet) -> CommandConfig | None:
-    """Find the first command whose trigger appears in user_input.
+    """Find the command whose longest trigger appears in user_input.
+
+    Uses longest-trigger-first to prevent partial matches:
+      "释放刺激" matches "释放刺激" (4 chars) over "刺激" (2 chars).
+      "解除捆绑" matches "解除捆绑" (4 chars) over "捆绑" (2 chars).
 
     Returns None if no match found.
     """
     text = user_input.lower()
+    best_cmd = None
+    best_len = 0
     for cmd in cmd_set.commands:
         for trigger in cmd.triggers:
-            if trigger.lower() in text:
-                return cmd
-    return None
+            t = trigger.lower()
+            if t in text and len(t) > best_len:
+                best_len = len(t)
+                best_cmd = cmd
+    return best_cmd
 
 
 # ═══════════════════════════════════════════════════════════════
