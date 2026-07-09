@@ -1,0 +1,27 @@
+# DLC Protocol — gitignore
+
+# Runtime data (generated at runtime, not committed)
+MEMORY/
+state/
+*.jsonl
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# OS
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+
+# IDE
+.vscode/
+.idea/
+
+# pytest
+.pytest_cache/

@@ -1,0 +1,21 @@
+{
+  "protocol_version": "1.0.0",
+  "card_id": "demo-l0-basic",
+  "card_name": "Demo L0 — 纯对话角色",
+  "complexity_level": "L0",
+  "author": "DLC Framework",
+  "created_at": "2026-07-08T00:00:00Z",
+  "updated_at": "2026-07-08T00:00:00Z",
+  "description": "L0 最简示例卡片：只有身份模块，无身体/引擎。",
+  "tags": ["demo", "l0"],
+  "modules": {
+    "identity": { "enabled": true, "profile": "identity/profile.json", "personality": "identity/personality.json", "speech": null },
+    "body": { "enabled": false, "anatomy": null, "zones": null },
+    "engine": { "enabled": false, "entities": null, "modifiers": null, "thresholds": null, "narratives": null },
+    "memory": { "enabled": false, "architecture": null, "schedule": null },
+    "behavior": { "enabled": false, "lws_rules": null },
+    "interaction": { "enabled": false, "commands": null, "items": null },
+    "vault": { "enabled": false, "secrets": null }
+  },
+  "engine_requirements": { "min_engine_version": "1.0.0", "required_features": [] }
+}

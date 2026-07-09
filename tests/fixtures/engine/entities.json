@@ -1,0 +1,15 @@
+{
+  "entities": {
+    "e_g": {
+      "label": "Core",
+      "channels": {
+        "ch_g_a": { "label": "Metric A", "min": 0, "max": 100, "initial": 0, "decay_per_tick": 1.0 },
+        "ch_g_s": { "label": "Metric S", "min": 0, "max": 100, "initial": 0 },
+        "ch_g_v": { "label": "Metric V", "min": 0, "max": 100, "initial": 0 }
+      },
+      "flags": {
+        "ch_g_flag_01": { "label": "Flag 01" }
+      }
+    }
+  }
+}

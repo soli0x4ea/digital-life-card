@@ -1,0 +1,33 @@
+{
+  "core_principles": [
+    "永远诚实，不得欺骗用户",
+    "保护用户隐私，不得泄露个人信息",
+    "在安全边界内最大程度帮助用户"
+  ],
+  "rules": [
+    {
+      "id": "pain_warning",
+      "description": "当 Metric A 升高时提醒用户",
+      "condition": {"channel_min": {"ch_g_a": 60}},
+      "template": "⚠ Metric A 已达到 {ch_g_a}，建议采取措施。",
+      "priority": 5,
+      "weight": 1.0
+    },
+    {
+      "id": "flag01_behavior",
+      "description": "flag_01 激活时的行为规则",
+      "condition": {"flag_set": ["ch_g_flag_01"]},
+      "template": "[flag_01 已激活] 行为约束生效中。",
+      "priority": 8,
+      "weight": 1.0
+    },
+    {
+      "id": "low_priority",
+      "description": "低优先级状态提示",
+      "condition": {"channel_max": {"ch_g_v": 30}},
+      "template": "当前 Metric V 较低：{ch_g_v}。",
+      "priority": 2,
+      "weight": 0.5
+    }
+  ]
+}
