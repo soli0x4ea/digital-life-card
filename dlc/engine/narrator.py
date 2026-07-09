@@ -1,11 +1,14 @@
-"""DLC Engine — Narrator layer.
+"""DLC Engine — Narrator layer v1.1.
 
 P1-18: narrative rendering
 P2-06: condition filtering (flag_set/flag_unset)
 P2-07: priority sorting
 P2-08: 3-tier narrative (mild/medium/intense)
+
+v2.5.0: Four atomic assembly ops + command-driven narrative pipeline.
 """
 
+import random as _random
 from .entity import EntityState
 
 # Severity → text tier mapping (from protocol: critical→intense, warning→medium, else→mild)
@@ -16,6 +19,10 @@ _SEVERITY_TIER = {
     "warning":  "medium",
 }
 
+
+# ═══════════════════════════════════════════════════════════════
+# Existing: threshold-driven rendering
+# ═══════════════════════════════════════════════════════════════
 
 def _check_condition(ev_cfg: dict, state: EntityState | None) -> bool:
     """P2-06: Check if event condition (flag_set/flag_unset) is satisfied."""
@@ -37,7 +44,7 @@ def render_event(
     severity: str = "warning",
     state: EntityState | None = None,
 ) -> str:
-    """Render narrative text for a triggered event.
+    """Render narrative text for a triggered threshold event.
 
     Args:
         event_id: The event ID from threshold config.
@@ -53,7 +60,6 @@ def render_event(
     if not ev:
         return ""
 
-    # P2-06: Condition check
     if not _check_condition(ev, state):
         return ""
 
@@ -67,27 +73,309 @@ def render_events(
     narratives: dict[str, dict],
     state: EntityState | None = None,
 ) -> list[str]:
-    """P2-07+P2-08: Render multiple threshold events with priority sorting.
-
-    Events are sorted by priority (higher first), defaulting to 0.
-    Each event's severity determines the text tier used.
-
-    Returns list of rendered text strings, filtered to non-empty.
-    """
-    # Attach priority from narrative config
+    """P2-07+P2-08: Render multiple threshold events with priority sorting."""
     scored = []
     for ev in events:
         ev_cfg = narratives.get(ev.event_id, {})
         priority = ev_cfg.get("priority", 0)
         scored.append((priority, ev))
 
-    # P2-07: Sort by priority descending
     scored.sort(key=lambda x: x[0], reverse=True)
 
-    # P2-08: Render each, skipping empty results
     result = []
     for _, ev in scored:
         text = render_event(ev.event_id, narratives, ev.event_type, state)
         if text:
             result.append(text)
     return result
+
+
+# ═══════════════════════════════════════════════════════════════
+# v2.5.0: Atomic narrative assembly operations
+# ═══════════════════════════════════════════════════════════════
+
+# ── M5-01: Variable interpolation ─────────────────────────────
+
+def interpolate(template: str, state: EntityState | None = None,
+                **extra_vars) -> str:
+    """Replace {key} placeholders with values from state or extra_vars.
+
+    Supported placeholders:
+        {channel_xxx}    — value of state.channels["xxx"]
+        {flag_xxx}       — value of state.flags["xxx"] or 0
+        {before}         — modifier before-value (from extra_vars)
+        {after}          — modifier after-value (from extra_vars)
+        {delta}          — after - before (from extra_vars)
+        {n}              — count (from extra_vars, e.g. candy eaten)
+        {part}           — body part name (from extra_vars)
+        {variant}        — variant label (from extra_vars)
+        {custom}         — any key passed via **extra_vars
+
+    Args:
+        template: String with {placeholder} markers.
+        state: EntityState for channel/flag lookups.
+        **extra_vars: Additional key=value pairs for interpolation.
+
+    Returns:
+        Template with all recognized placeholders replaced.
+    """
+    if not template or "{" not in template:
+        return template
+
+    result = template
+
+    # Channel values: {channel_xxx}
+    if state and state.channels:
+        for ch_id, val in state.channels.items():
+            result = result.replace(f"{{channel_{ch_id}}}", str(val))
+
+    # Flag values: {flag_xxx}
+    if state and state.flags:
+        for f_id, val in state.flags.items():
+            result = result.replace(f"{{flag_{f_id}}}", str(val))
+
+    # Extra vars
+    for key, val in extra_vars.items():
+        result = result.replace(f"{{{key}}}", str(val))
+
+    return result
+
+
+# ── M5-02: Range select ───────────────────────────────────────
+
+def range_select(
+    state: EntityState,
+    channel: str,
+    brackets: list,
+    texts: list[str],
+) -> str:
+    """Select text based on which bracket the channel value falls into.
+
+    Args:
+        state: EntityState whose channels[channel] is read.
+        channel: Channel name to read.
+        brackets: List of [lo, hi] pairs (None = no bound).
+        texts: Corresponding texts, len(texts) == len(brackets).
+
+    Returns:
+        The text from the first matching bracket, or "" if no match.
+
+    Example:
+        range_select(state, "candy_count",
+            brackets=[[0,5], [5,10], [10,None]],
+            texts=["empty", "half", "full"])
+        # candy_count=3 → "empty", candy_count=7 → "half", candy_count=15 → "full"
+    """
+    val = (state.channels or {}).get(channel, 0)
+
+    for i, (lo, hi) in enumerate(brackets):
+        if lo is not None and val < lo:
+            continue
+        if hi is not None and val >= hi:
+            continue
+        if i < len(texts):
+            return texts[i]
+
+    return ""
+
+
+# ── M5-03: Conditional append ─────────────────────────────────
+
+def _eval_cond(cond: dict, state: EntityState) -> bool:
+    """Evaluate a single condition against entity state.
+
+    Supported conditions:
+        {"channel": "xxx", "op": ">=", "value": N}
+        {"channel": "xxx", "op": ">",  "value": N}
+        {"channel": "xxx", "op": "<=", "value": N}
+        {"channel": "xxx", "op": "<",  "value": N}
+        {"channel": "xxx", "op": "==", "value": N}
+        {"channel": "xxx", "op": "!=", "value": N}
+        {"flag": "xxx", "set": true/false}
+    """
+    # Channel condition
+    channel = cond.get("channel", "")
+    if channel and "op" in cond:
+        val = (state.channels or {}).get(channel, 0)
+        op = cond["op"]
+        target = cond.get("value", 0)
+        if op == ">=": return val >= target
+        if op == ">":  return val > target
+        if op == "<=": return val <= target
+        if op == "<":  return val < target
+        if op == "==": return val == target
+        if op == "!=": return val != target
+        return False
+
+    # Flag condition
+    flag = cond.get("flag", "")
+    if flag:
+        expect = cond.get("set", True)
+        actual = (state.flags or {}).get(flag, 0)
+        return bool(actual) == bool(expect)
+
+    return True  # empty condition = always pass
+
+
+def conditional_append(
+    base: str,
+    conditions: list[dict],
+    texts: list[str],
+    state: EntityState | None = None,
+) -> str:
+    """Append text segments when their conditions are met.
+
+    Args:
+        base: Starting text.
+        conditions: List of condition dicts, one per text.
+        texts: Text segments to conditionally append.
+        state: EntityState for evaluation.
+
+    Returns:
+        base + all conditionally-appended texts, joined with newlines.
+
+    Example:
+        conditional_append("ate candy",
+            conditions=[{"channel": "pain", "op": ">=", "value": 50},
+                        {"flag": "bound", "set": True}],
+            texts=["it still hurts", "bound and sweet"],
+            state=state)
+        # pain=60, bound=1 → "ate candy\nit still hurts\nbound and sweet"
+    """
+    if not state:
+        return base
+
+    parts = [base] if base else []
+    for i, cond in enumerate(conditions):
+        if i < len(texts) and _eval_cond(cond, state):
+            parts.append(texts[i])
+
+    return "\n".join(p for p in parts if p)
+
+
+# ── M5-04: Weighted random ────────────────────────────────────
+
+def weighted_random(
+    variants: list[dict],
+) -> tuple[str, str]:
+    """Randomly select a variant by weight.
+
+    Args:
+        variants: List of {"weight": N, "text": "...", "id": "..."} dicts.
+
+    Returns:
+        (text, variant_id) tuple.
+
+    Weights are automatically normalized. Entries with weight <= 0 are excluded.
+    If no valid variants exist, returns ("", "").
+    """
+    valid = [(v.get("weight", 1), v.get("text", ""), v.get("id", ""))
+             for v in variants if v.get("weight", 0) > 0]
+
+    if not valid:
+        return "", ""
+
+    total = sum(w for w, _, _ in valid)
+    r = _random.uniform(0, total)
+    cumulative = 0.0
+    for w, text, vid in valid:
+        cumulative += w
+        if r <= cumulative:
+            return text, vid
+
+    # Fallback (floating-point edge case)
+    return valid[-1][1], valid[-1][2]
+
+
+# ═══════════════════════════════════════════════════════════════
+# v2.5.0: Command-driven narrative pipeline
+# ═══════════════════════════════════════════════════════════════
+
+def render_command_narrative(
+    cmd_id: str,
+    state: EntityState,
+    narratives_cfg: dict,
+    **extra_vars,
+) -> str:
+    """Assemble narrative text for a command using the four atomic ops.
+
+    Reads from narratives.json → "command_assembly" → cmd_id pipeline.
+
+    Pipeline steps:
+        {"op": "range", "channel": "...", "brackets": [[lo,hi],...], "texts": [...]}
+        {"op": "cond",  "if": [{...},...], "texts": [...]}  — conditional_append
+        {"op": "rand",  "variants": [{"weight":N,"text":"...","id":"..."},...]}
+        {"op": "interp", "template": "..."}                  — interpolate
+        {"op": "event",  "event_id": "...", "severity": "..."}  — threshold event
+
+    A pipeline step may also be a plain string — treated as "interp".
+
+    Args:
+        cmd_id: Command ID (matches command_assembly key).
+        state: Entity state for channel/flag reads.
+        narratives_cfg: Full narratives.json dict.
+        **extra_vars: Extra interpolation variables.
+
+    Returns:
+        Assembled narrative text, or "" if no assembly config exists.
+    """
+    assembly = (narratives_cfg or {}).get("command_assembly", {})
+    pipeline = assembly.get(cmd_id)
+
+    if not pipeline:
+        return ""
+
+    lines = []
+    for step in pipeline:
+        # Plain string → interpolate
+        if isinstance(step, str):
+            text = interpolate(step, state, **extra_vars)
+            if text:
+                lines.append(text)
+            continue
+
+        op = step.get("op", "")
+
+        if op == "range":
+            ch = step.get("channel", "")
+            brackets = step.get("brackets", [])
+            texts = step.get("texts", [])
+            text = range_select(state, ch, brackets, texts)
+            if text:
+                lines.append(text)
+
+        elif op == "cond":
+            base = step.get("base", "")
+            parts = [base] if base else []
+            ifs = step.get("if", [])
+            texts = step.get("texts", [])
+            if not isinstance(ifs, list):
+                ifs = [ifs]
+            for i, cond in enumerate(ifs):
+                if i < len(texts) and _eval_cond(cond, state):
+                    parts.append(texts[i])
+            line = "\n".join(p for p in parts if p)
+            if line:
+                lines.append(line)
+
+        elif op == "rand":
+            variants = step.get("variants", [])
+            text, variant_id = weighted_random(variants)
+            if text:
+                text = interpolate(text, state, variant=variant_id, **extra_vars)
+                lines.append(text)
+
+        elif op == "interp":
+            template = step.get("template", "")
+            text = interpolate(template, state, **extra_vars)
+            if text:
+                lines.append(text)
+
+        elif op == "event":
+            event_id = step.get("event_id", "")
+            severity = step.get("severity", "warning")
+            text = render_event(event_id, narratives_cfg, severity, state)
+            if text:
+                lines.append(text)
+
+    return "\n".join(lines)

@@ -1,4 +1,10 @@
-"""DLC Memory — Core: architecture loader + CRUD store."""
+"""DEPRECATED — replaced by dual-core memory (ChatlogStore + TimelineStore) in v0.4.0.
+
+Kept for reference only. No longer exported from dlc.__init__.
+Will be removed in v0.5.0.
+
+Original: DLC Memory — Core: architecture loader + CRUD store.
+"""
 
 import json, os, time, uuid
 from dataclasses import dataclass, field

@@ -12,14 +12,13 @@
 
 ## ⚠️ 当前阶段说明
 
-**v0.3.0 是引擎预览版。** 框架核心（卡片加载 / 引擎 / 记忆 / 交互 / 加密）已全部实现并通过 315 项测试，但**还缺少 CLI 入口和 LLM 接入层**。这意味着：
+**v0.4.0 引擎预览版（内部 v2.5.0）。** 框架核心已全部实现并通过 315 项测试，但**还缺少 CLI 入口和 LLM 接入层**。这意味着：
 
 - ✅ 你可以加载卡片、运行引擎、使用道具和保险库
 - ✅ 你可以用这套框架创建自己的数字生命卡片
+- ✅ 记忆系统经过 2.6 万条真实对话验证
+- ✅ 叙事装配管线就绪（四原子操作）
 - ❌ 目前还不能 `python -m dlc run my-card` 直接对话
-- 🔄 Skill 形态的完整运行时正在 Phase 4 开发中
-
-如果你只是想**做一个数字生命试试看**——往下翻到「5 分钟上手」，代码是能跑的。如果你想**部署到生产**——请等 Phase 5 工具链完成。
 
 ---
 
@@ -28,9 +27,10 @@
 - **渐进式复杂度** — L0 最简卡（5 分钟做一个）→ L3 完整数字生命，按需启停模块
 - **完全配置驱动** — 7 大模块全部 JSON 声明式配置，引擎纯执行，不写死任何领域逻辑
 - **状态可持久化** — 数字生命的状态可以保存、迁移、在不同设备上「读档」
-- **分层记忆系统** — 工作记忆 → 短期记忆 → 长期记忆，带 TTL、晋升、巩固、搜索
+- **双核线性记忆** — chatlog（对话记录）+ timeline（时间感知），JSONL 追加写入，人机可读
 - **LWS 行为规则** — 声明式规则引擎，定义数字生命的「性格」和「行为模式」
 - **体感引擎** — 实体 → 通道 → 修饰符 → 阈值 → 叙事 五层架构，纯中性可复用
+- **命令叙事管线** — 四原子操作（range/cond/rand/interp），命令执行后自动装配完整叙事
 - **交互系统** — 命令触发 + 道具系统（消耗 / 永久 / 装备）+ 五级稀有度
 - **加密保险库** — AES-256-GCM + PBKDF2-SHA256，密钥由卡片持有者管理
 - **打包格式** — `.dlc` 单文件卡片 + HMAC 签名验证
@@ -57,7 +57,6 @@ print(f"卡片: {card.card_id} / {card.complexity_level}")
 
 # 2. 创建运行时上下文
 ctx = CardRuntimeContext("cards/demo-l1")
-# ctx 提供: ctx.entities, ctx.modifiers, ctx.thresholds, ctx.narratives
 ```
 
 ### L1 体感交互
@@ -66,23 +65,40 @@ ctx = CardRuntimeContext("cards/demo-l1")
 from dlc.engine.entity import EntityState
 from dlc.engine.modifier import apply_modifier
 from dlc.engine.threshold import check_thresholds
-from dlc.engine.narrator import render_event
+from dlc.engine.narrator import render_event, render_command_narrative
 
-# 加载配置
-entities = ctx.entities["entities"]          # {"e_g": {...}}
-modifiers = ctx.modifiers["modifiers"]       # {"mod_xxx": {...}}
-thresholds = ctx.thresholds["thresholds"]    # {threshold_id: threshold_cfg}
-narratives = ctx.narratives["events"]        # {"ev_xxx": {...}}
-
-# 创建实体状态并施加修饰符
+# 加载配置后，施加修饰符
 state = EntityState(entity_id="e_g")
 result = apply_modifier(state, modifiers["mod_eg_av_add"], intensity=2.0)
 
 # 检查阈值触发
 events = check_thresholds(state, thresholds)
 for ev in events:
-    text = render_event(ev.event_id, narratives, state=state)
+    text = render_event(ev.event_id, narratives["events"], state=state)
     print(f"[{ev.event_type}] {text}")
+
+# 或使用命令叙事管线（v0.4.0 新增）
+text = render_command_narrative("my_command", state, narratives)
+print(text)
+```
+
+### 记忆系统（v0.4.0 新增）
+
+```python
+from dlc.memory import ChatlogStore, TimelineStore, MemorySearch
+
+# 对话记忆 — JSONL 追加写入，永不删除
+chatlog = ChatlogStore("./my-card/MEMORY/chatlog")
+chatlog.append("user", "你好")
+chatlog.append("assistant", "你好！有什么我可以帮你的？")
+
+# 时间感知 — 小时级分桶
+timeline = TimelineStore("./my-card/MEMORY")
+timeline.write("2026-07-09-14", summary="下午开始开发")
+
+# 统一检索
+search = MemorySearch(chatlog, timeline)
+results = search.search("你好")
 ```
 
 ### 运行测试
@@ -106,7 +122,7 @@ python -m pytest tests/ -v
 ├─────────────────────────────────────────┤
 │        Engine (状态引擎)                │  L1  修饰符 / 阈值 / 叙事
 ├─────────────────────────────────────────┤
-│         Memory (记忆)                   │  L2  分层记忆 / TTL / 晋升
+│         Memory (记忆)                   │  L2  chatlog + timeline 双核线性
 ├─────────────────────────────────────────┤
 │       Behavior (行为规则)               │  L2  LWS 规则 / 核心原则
 ├─────────────────────────────────────────┤
@@ -137,9 +153,25 @@ Input Signal
 [Threshold 阈值]   →  检测是否触发事件（带冷却）
     ↓
 [Narrator 叙事]    →  条件过滤 + 优先级排序 + 文本输出
+                     + 命令叙事管线（range / cond / rand / interp）← v0.4.0
     ↓
 [Auto Trigger]     →  事件概率触发新修饰符（反馈环）
 ```
+
+---
+
+## 🎭 叙事装配管线（v0.4.0 新增）
+
+命令执行后不再输出 `"N channel(s) updated"`，而是通过**四原子操作**装配完整叙事：
+
+| 操作 | 做什么 | 配置示例 |
+|:--|:--|:--|
+| `range` | 按 channel 值区间选文本 | `{"op":"range","channel":"mood","brackets":[[0,30],[30,70],[70,100]],"texts":["低落","平静","开心"]}` |
+| `cond` | 按条件追加文本 | `{"op":"cond","if":[{"channel":"pain","op":">=","value":40}],"texts":["疼痛警告"]}` |
+| `rand` | 按权重随机选变体 | `{"op":"rand","variants":[{"weight":30,"text":"嗯…"},{"weight":70,"text":"嗯！"}]}` |
+| `interp` | 变量插值 | `{"op":"interp","template":"库存{channel_candy_count}颗糖"}` |
+
+在 `narratives.json` 的 `command_assembly` 区块中为每条命令配置管线步骤，引擎按序执行，输出多段拼接的完整叙事。
 
 ---
 
@@ -206,10 +238,25 @@ python -m pytest tests/ -v
 
 - ✅ **Phase 0** — 核心基础设施（卡片加载 / Schema / 持久化 / 打包）
 - ✅ **Phase 1** — L0-L1 基础模块（身份 / 身体 / 引擎）
-- ✅ **Phase 2** — L2 标准引擎（记忆 / LWS / 调度器）
+- ✅ **Phase 2** — L2 标准引擎（双核记忆 / LWS / 调度器）
 - ✅ **Phase 3** — L3 高级系统（命令 / 道具 / 保险库）
-- 🔄 **Phase 4** — 数字生命移植验证（完整卡片迁移 + LLM 接入）
+- ✅ **Phase 4a** — Narrator 升级（四原子管线 + 命令驱动）
+- 🔄 **Phase 4b** — 数字生命验证（完整卡片迁移验证 + LLM 接入）
 - ⏳ **Phase 5** — 工具链与文档（CLI / Web 面板 / 开发者文档）
+
+---
+
+## ⚠️ Breaking Change（v0.4.0）
+
+记忆系统 API 从 v0.3.0 完全替换：
+
+| 旧（v0.3.0） | 新（v0.4.0） |
+|:--|:--|
+| `MemoryEngine` / `MemoryStore` / `MemoryEntry` | `ChatlogStore` + `TimelineStore` + `MemorySearch` |
+| 三层结构化（TTL + consolidation + importance） | 双核线性（JSONL 追加写入） |
+| `inject_memory_context(state)` | `MemorySearch.inject_context()` |
+
+旧 API 代码保留在 `dlc/memory/core.py` 但不导出。将在 v0.5.0 彻底删除。如果你从 v0.3.0 升级，需要重写记忆相关代码。
 
 ---
 
@@ -219,10 +266,10 @@ python -m pytest tests/ -v
 2. 修改 `card.json` 中的 `card_id`、`name` 和各模块配置
 3. 在 `identity/` 下定义名字、性格和说话方式
 4. 用 `load_card()` 加载验证，用 `validate_card()` 检查配置正确性
-5. 需要体感？启用 `body` + `engine` 模块，你的卡片就能「感受」了
-6. 完成后用 `pack()` 打包成 `.dlc` 单文件
+5. 需要体感？启用 `body` + `engine` 模块，配置叙事管线
+6. 完成
 
-详见 `cards/` 目录下的四张示例卡片——每张都是一个完整的参考实现。
+详见 `cards/` 目录下的示例卡片。
 
 ---
 
@@ -245,7 +292,7 @@ MIT License
 
 ## 🙏 致谢
 
-- 首个数字生命原型 — 验证了「一个文件夹，一段数字生命」这个想法是可行的，为引擎设计提供了最初的灵感来源
+- 首个数字生命原型 — 验证了「一个文件夹，一段数字生命」这个想法是可行的
 - 所有贡献者 — 让数字生命成为可能
 
 ---

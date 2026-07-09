@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 
 from dlc.engine.entity import EntityState
 from dlc.engine.modifier import apply_modifier
-from dlc.engine.narrator import render_event
+from dlc.engine.narrator import render_event, render_command_narrative
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -19,6 +19,7 @@ class CommandConfig:
     description: str = ""
     effects: list = field(default_factory=list)
     cooldown_seconds: int = 0
+    meta: dict = field(default_factory=dict)  # v1.1: extended fields
 
 
 @dataclass
@@ -37,15 +38,32 @@ class CommandLoader:
             return CommandSet()
         with open(path, encoding="utf-8") as f:
             raw = json.load(f)
-        cmds = [
-            CommandConfig(
-                id=c["id"], triggers=c.get("triggers", []),
+
+        cmds = []
+        for c in raw.get("commands", []):
+            # v1.1: name/id aliases
+            cid = c.get("id") or c.get("name", "")
+            # v1.1: triggers/aliases aliases
+            triggers = c.get("triggers") or c.get("aliases", [])
+            # v1.1: effects/modifier aliases
+            effects = c.get("effects")
+            if effects is None:
+                mod_id = c.get("modifier") or c.get("modifier_id")
+                effects = [{"type": "modifier", "modifier_id": mod_id}] if mod_id else []
+
+            # v1.1: preserve extended fields in meta
+            standard_keys = {"id", "name", "triggers", "aliases", "effects",
+                             "modifier", "modifier_id", "description", "cooldown_seconds"}
+            meta = {k: v for k, v in c.items() if k not in standard_keys}
+
+            cmds.append(CommandConfig(
+                id=cid, triggers=triggers,
                 description=c.get("description", ""),
-                effects=c.get("effects", []),
+                effects=effects,
                 cooldown_seconds=c.get("cooldown_seconds", 0),
-            )
-            for c in raw.get("commands", [])
-        ]
+                meta=meta,
+            ))
+
         return CommandSet(commands=cmds)
 
 
@@ -87,11 +105,12 @@ def execute_command(
 ) -> CommandResult:
     """Execute a single command effect against the runtime state.
 
-    Supports 4 effect types:
+    Supports 5 effect types:
     - modifier: apply a modifier by id
     - narrative: render a narrative event
     - memory: write to memory store
     - state: direct flag_set/flag_unset
+    - command_narrative (v2.5.0): assemble narrative via command pipeline
     """
     etype = effect.get("type", "")
     result = CommandResult()
@@ -106,6 +125,14 @@ def execute_command(
             r = apply_modifier(state, mod, intensity=float(intensity))
             result.success = r.applied
             result.output = r.note
+
+        elif etype == "command_narrative":
+            # v2.5.0: command-driven narrative assembly
+            cmd_id = effect.get("command_id", "")
+            extra = effect.get("vars", {})
+            text = render_command_narrative(cmd_id, state, narratives_cfg, **extra)
+            result.success = bool(text)
+            result.output = text
 
         elif etype == "narrative":
             event_id = effect["event_id"]

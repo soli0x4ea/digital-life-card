@@ -1,14 +1,27 @@
+# DLC Protocol — gitignore
+
+# Runtime data (generated at runtime, not committed)
+MEMORY/
+state/
+*.jsonl
+
+# Python
 __pycache__/
 *.pyc
 *.pyo
-data/engine/state/.backups/
-data/engine/state/e_*.json
+*.egg-info/
+dist/
+build/
 
-# 运行时生成（模板不携带）
-data/time.json
-data/IO/diary/*.md
-data/IO/stdout/*.md
-MEMORY/
-references/time_river_state.json
-assets/vault/*.enc
-assets/vault/plain/
+# OS
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+
+# IDE
+.vscode/
+.idea/
+
+# pytest
+.pytest_cache/
