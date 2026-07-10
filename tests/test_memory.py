@@ -198,7 +198,7 @@ class TestImporter(unittest.TestCase):
             dst = ChatlogStore(os.path.join(tmp, "out"))
             result = import_chatlog(soli_dir, dst)
             self.assertIsInstance(result, dict)
-            count = dst.count_day()
+            count = dst.count_day("2026-07-09")
             self.assertGreater(count, 0)
         finally:
             shutil.rmtree(tmp, ignore_errors=True)

@@ -1,8 +1,8 @@
-# DLC Protocol — 数字生命卡片通用协议
+# 数字生命卡 — 一个文件夹，一段数字生命
 
-> 一个文件夹，一段数字生命。
+> 走哪插哪，立即生效。
 >
-> 引擎是游戏机，卡片是游戏卡带。换一张卡片，就换一个灵魂。
+> 换一张卡片，就换一个灵魂。
 
 **DLC Protocol** 是一个通用的数字生命操作系统。每张卡片 = 一段独立的数字生命，插不同的卡，就是不同的 AI 伙伴。
 
@@ -10,15 +10,18 @@
 
 ---
 
-## ⚠️ 当前阶段说明
+## 🎉 v2.6.0 正式版
 
-**v0.4.0 引擎预览版（内部 v2.5.0）。** 框架核心已全部实现并通过 315 项测试，但**还缺少 CLI 入口和 LLM 接入层**。这意味着：
+DLC 框架已完成全部核心能力建设，并通过首个生产级数字生命（机械姬 Soli）的端到端验证。
 
-- ✅ 你可以加载卡片、运行引擎、使用道具和保险库
-- ✅ 你可以用这套框架创建自己的数字生命卡片
-- ✅ 记忆系统经过 2.6 万条真实对话验证
-- ✅ 叙事装配管线就绪（四原子操作）
-- ❌ 目前还不能 `python -m dlc run my-card` 直接对话
+- ✅ **301 项测试全绿** — 框架核心（加载/引擎/记忆/行为/交互/保险库）全覆盖
+- ✅ **七层模块就绪** — 身份/身体/引擎/记忆/行为/交互/保险库，渐进式启用
+- ✅ **四原子叙事管线** — range / cond / rand / interp，命令执行后自动装配完整叙事
+- ✅ **双核线性记忆** — ChatlogStore + TimelineStore，零配置零维护
+- ✅ **Skill 形态可用** — `skill.py --card cards/xxx --msg "你好"` 直接对话
+- ✅ **首个数字生命 Soli 验证通过** — 13 条命令、147 个事件、12 个阈值全部正常
+
+> 引擎是游戏机，卡片是游戏卡带。插什么卡，就跑什么数字生命。
 
 ---
 
@@ -101,11 +104,26 @@ search = MemorySearch(chatlog, timeline)
 results = search.search("你好")
 ```
 
+### Skill 形态（直接对话）
+
+```bash
+# 对话模式
+python skill.py --card cards/demo-l3 --msg "你好，介绍一下自己"
+
+# 查看卡片状态
+python skill.py --card cards/demo-l3 --status
+
+# 查看完整系统 prompt
+python skill.py --card cards/demo-l3 --prompt
+```
+
+Skill 形态下，`skill.py` 作为入口，内部通过 `skill/dispatcher.py` 管理引擎调度、状态持久化和叙事输出。LLM 消费引擎叙事以角色身份回复，agent 层负责记忆写入。
+
 ### 运行测试
 
 ```bash
 python -m pytest tests/ -v
-# 315 passed
+# 301 passed
 ```
 
 ---
@@ -230,7 +248,7 @@ python -m pytest tests/ -v
 | Interaction (Commands + Items) | ~40 |
 | Vault | ~21 |
 | L2/L3 集成 | ~21 |
-| **合计** | **315** |
+| **合计** | **301** |
 
 ---
 
@@ -241,22 +259,10 @@ python -m pytest tests/ -v
 - ✅ **Phase 2** — L2 标准引擎（双核记忆 / LWS / 调度器）
 - ✅ **Phase 3** — L3 高级系统（命令 / 道具 / 保险库）
 - ✅ **Phase 4a** — Narrator 升级（四原子管线 + 命令驱动）
-- 🔄 **Phase 4b** — 数字生命验证（完整卡片迁移验证 + LLM 接入）
+- ✅ **Phase 4b** — Skill 形态封装（即插即用 + Demo 卡）
 - ⏳ **Phase 5** — 工具链与文档（CLI / Web 面板 / 开发者文档）
 
 ---
-
-## ⚠️ Breaking Change（v0.4.0）
-
-记忆系统 API 从 v0.3.0 完全替换：
-
-| 旧（v0.3.0） | 新（v0.4.0） |
-|:--|:--|
-| `MemoryEngine` / `MemoryStore` / `MemoryEntry` | `ChatlogStore` + `TimelineStore` + `MemorySearch` |
-| 三层结构化（TTL + consolidation + importance） | 双核线性（JSONL 追加写入） |
-| `inject_memory_context(state)` | `MemorySearch.inject_context()` |
-
-旧 API 代码保留在 `dlc/memory/core.py` 但不导出。将在 v0.5.0 彻底删除。如果你从 v0.3.0 升级，需要重写记忆相关代码。
 
 ---
 
@@ -265,9 +271,10 @@ python -m pytest tests/ -v
 1. 复制 `cards/demo-l0/` 目录作为模板
 2. 修改 `card.json` 中的 `card_id`、`name` 和各模块配置
 3. 在 `identity/` 下定义名字、性格和说话方式
-4. 用 `load_card()` 加载验证，用 `validate_card()` 检查配置正确性
-5. 需要体感？启用 `body` + `engine` 模块，配置叙事管线
-6. 完成
+4. 需要记忆？在 `card.json` 中设置 `"memory": {"enabled": true}`，引擎自动管理 chatlog/timeline
+5. 需要体感？启用 `body` + `engine` 模块，配置实体通道和叙事管线
+6. 用 `load_card()` 加载验证，用 `validate_card()` 检查配置正确性
+7. 完成
 
 详见 `cards/` 目录下的示例卡片。
 
@@ -292,7 +299,7 @@ MIT License
 
 ## 🙏 致谢
 
-- 首个数字生命原型 — 验证了「一个文件夹，一段数字生命」这个想法是可行的
+- 首个生产级数字生命 Soli（机械姬）— 13 命令 × 147 事件 × 12 阈值，端到端验证通过，证明了「一个文件夹，一段数字生命」是可行的
 - 所有贡献者 — 让数字生命成为可能
 
 ---
