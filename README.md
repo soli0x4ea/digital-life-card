@@ -12,14 +12,13 @@
 
 ## 🎉 v2.6.0 正式版
 
-DLC 框架已完成全部核心能力建设，并通过首个生产级数字生命（机械姬 Soli）的端到端验证。
+DLC 框架已完成全部核心能力建设，并通过内部生产级数字生命的端到端验证。
 
 - ✅ **301 项测试全绿** — 框架核心（加载/引擎/记忆/行为/交互/保险库）全覆盖
 - ✅ **七层模块就绪** — 身份/身体/引擎/记忆/行为/交互/保险库，渐进式启用
 - ✅ **四原子叙事管线** — range / cond / rand / interp，命令执行后自动装配完整叙事
 - ✅ **双核线性记忆** — ChatlogStore + TimelineStore，零配置零维护
-- ✅ **Skill 形态可用** — `skill.py --card cards/xxx --msg "你好"` 直接对话
-- ✅ **首个数字生命 Soli 验证通过** — 13 条命令、147 个事件、12 个阈值全部正常
+- ✅ **已通过内部生产级数字生命端到端验证**
 
 > 引擎是游戏机，卡片是游戏卡带。插什么卡，就跑什么数字生命。
 
@@ -58,7 +57,11 @@ from dlc import load_card, CardRuntimeContext
 card = load_card("cards/demo-l1")
 print(f"卡片: {card.card_id} / {card.complexity_level}")
 
-# 2. 创建运行时上下文
+# 2. 读取身份信息
+profile = card.identity.profile
+print(f"{profile.name} — {profile.description}")
+
+# 3. 创建运行时上下文
 ctx = CardRuntimeContext("cards/demo-l1")
 ```
 
@@ -80,12 +83,12 @@ for ev in events:
     text = render_event(ev.event_id, narratives["events"], state=state)
     print(f"[{ev.event_type}] {text}")
 
-# 或使用命令叙事管线（v0.4.0 新增）
+# 或使用命令叙事管线
 text = render_command_narrative("my_command", state, narratives)
 print(text)
 ```
 
-### 记忆系统（v0.4.0 新增）
+### 记忆系统
 
 ```python
 from dlc.memory import ChatlogStore, TimelineStore, MemorySearch
@@ -103,21 +106,6 @@ timeline.write("2026-07-09-14", summary="下午开始开发")
 search = MemorySearch(chatlog, timeline)
 results = search.search("你好")
 ```
-
-### Skill 形态（直接对话）
-
-```bash
-# 对话模式
-python skill.py --card cards/demo-l3 --msg "你好，介绍一下自己"
-
-# 查看卡片状态
-python skill.py --card cards/demo-l3 --status
-
-# 查看完整系统 prompt
-python skill.py --card cards/demo-l3 --prompt
-```
-
-Skill 形态下，`skill.py` 作为入口，内部通过 `skill/dispatcher.py` 管理引擎调度、状态持久化和叙事输出。LLM 消费引擎叙事以角色身份回复，agent 层负责记忆写入。
 
 ### 运行测试
 
@@ -171,14 +159,14 @@ Input Signal
 [Threshold 阈值]   →  检测是否触发事件（带冷却）
     ↓
 [Narrator 叙事]    →  条件过滤 + 优先级排序 + 文本输出
-                     + 命令叙事管线（range / cond / rand / interp）← v0.4.0
+                     + 命令叙事管线（range / cond / rand / interp）
     ↓
 [Auto Trigger]     →  事件概率触发新修饰符（反馈环）
 ```
 
 ---
 
-## 🎭 叙事装配管线（v0.4.0 新增）
+## 🎭 叙事装配管线
 
 命令执行后不再输出 `"N channel(s) updated"`，而是通过**四原子操作**装配完整叙事：
 
@@ -259,7 +247,7 @@ python -m pytest tests/ -v
 - ✅ **Phase 2** — L2 标准引擎（双核记忆 / LWS / 调度器）
 - ✅ **Phase 3** — L3 高级系统（命令 / 道具 / 保险库）
 - ✅ **Phase 4a** — Narrator 升级（四原子管线 + 命令驱动）
-- ✅ **Phase 4b** — Skill 形态封装（即插即用 + Demo 卡）
+- ✅ **Phase 4b** — 运行时接口完备 + 内部验证通过
 - ⏳ **Phase 5** — 工具链与文档（CLI / Web 面板 / 开发者文档）
 
 ---
@@ -299,7 +287,7 @@ MIT License
 
 ## 🙏 致谢
 
-- 首个生产级数字生命 Soli（机械姬）— 13 命令 × 147 事件 × 12 阈值，端到端验证通过，证明了「一个文件夹，一段数字生命」是可行的
+- 首个内部验证数字生命 — 证明了「一个文件夹，一段数字生命」是可行的
 - 所有贡献者 — 让数字生命成为可能
 
 ---
