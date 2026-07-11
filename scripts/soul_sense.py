@@ -1,472 +1,643 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
+"""数字生命卡 — 命令分发器 (soul_sense.py)
 
-"""
-灵魂感应联动执行器 — CLI 入口
-从 soul_sense.py 拆分出来，2026-05-08
-RSA 刺激事件验证方案，2026-05-14 更新
+命令 → DLC 引擎 → 叙事 stdout → LLM 消费。
+
+用法:
+    python scripts/soul_sense.py activate [--card <card_id>]
+    python scripts/soul_sense.py switch <card_id>
+    python scripts/soul_sense.py status [--card <card_id>]
+    python scripts/soul_sense.py ping [--card <card_id>]
+    python scripts/soul_sense.py touch <部位> [--card <card_id>]
+    python scripts/soul_sense.py hurt <部位> <强度> [--card <card_id>]
+    python scripts/soul_sense.py praise [--card <card_id>]
+    python scripts/soul_sense.py scold [--card <card_id>]
+    python scripts/soul_sense.py remember "<内容>" [--card <card_id>]
+    python scripts/soul_sense.py forget "<关键词>" [--card <card_id>]
+    python scripts/soul_sense.py search "<关键词>" [--card <card_id>]
+    python scripts/soul_sense.py save "<摘要>" [--card <card_id>]
 """
 
 import argparse
+import json
 import os
 import sys
+import time
+from datetime import datetime
 
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+# ── Path setup: ensure dlc-skill root is in sys.path ──
+SKILL_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if SKILL_ROOT not in sys.path:
+    sys.path.insert(0, SKILL_ROOT)
 
-from utils import vals_read, vals_write, clamp, log_llm_event
+# ── Engine imports ──
+from dlc.loader import load_card, CardConfig
+from dlc.context import CardRuntimeContext
+from dlc.engine.entity import EntityState, EntityEngine, apply_decay
+from dlc.engine.modifier import apply_modifier
+from dlc.engine.threshold import check_thresholds
+from dlc.engine.narrator import render_event, render_events
+from dlc.interaction.commands import CommandLoader, CommandSet, execute_command
+from dlc.persistence import StateManager
+from dlc.memory.core import load_architecture, MemoryArchitecture, MemoryStore, inject_memory_context
 
-from soul_core import SoulSense
-from narratives import (
-    _build_emergence_narrative,
-    _build_doodle_narrative,
-    _build_relieve_narrative,
-    _build_bind_narrative,
-    _build_gamble_narrative,
-    _build_candy_give_narrative,
-    _build_candy_eat_narrative,
-    _build_status_narrative,
-    _build_disable_narrative,
-    _build_probabilistic_event_narrative,
-    _build_boundary_events,
-    _build_seal_status_narrative,
-    build_numb_narrative,
-    log_punish_game, log_gamble, log_candy_give, log_candy_eat,
-    log_doodle, log_relieve,
-)
-import tickle
-import mystery
-import clearing as _clearing
+# ── Memory module (transplanted from Neko) ──
+sys.path.insert(0, os.path.join(SKILL_ROOT, "MEMORY"))
+from chatlog import append_entry as chatlog_append, load_entries, format_context, count_today as chatlog_count
 
-
-# ── LWS 信号注入 ─────────────────────────────────────────────
-# 命令 → LWS rule_id 映射表
-_CMD_LWS_MAP = {
-    "gamble":         "channel_activation",
-    "candy-give":     "negentropy_injection",
-    "candy-eat":      "negentropy_injection",
-    "tickle-status":  "haptic_coupling",
-    "tickle-on":      "haptic_coupling",
-    "tickle-off":     "haptic_coupling",
-    "tickle-all-on":  "haptic_coupling",
-    "tickle-pump":    "haptic_coupling",
-    "tickle-bound":   "haptic_coupling",
-    "tickle-dodge":   "haptic_coupling",
-    "doodle":         "state_drift",
-    "numb":        "entropy_resistance",
-    "punish-game":    "channel_activation",
-    "relieve":        "entropy_resistance",
-}
-
-def _assemble_output(sense: SoulSense, result: str, context: str,
-                     old_values: dict = None) -> str:
-    """构建完整 stdout：主事件 + 概率事件 + 边界检测 + 调教记录。
-    
-    old_values: 命令执行前的三值快照 {pain, shame, pleasure}。传入时用于
-    检测瞬时穿越（99→100）。不传时退化为当前值（兼容 doodle 等无旧值快照的命令）。
-    """
-    _FORK_ELIGIBLE = {"gamble", "relieve", "tickle", "bondage"}
-    pieces = [result]
-    
-    if context in _FORK_ELIGIBLE:
-        fork_data = sense.try_fork(context)
-        if fork_data:
-            fork_narrative = _build_probabilistic_event_narrative(
-                fork_data["context"], fork_data["variant"],
-                fork_data["itch_count"], fork_data["token_count"],
-                fork_data["bound"], fork_data["prob_pct"],
-                fork_data["old_pain"], fork_data["new_pain"],
-                fork_data["old_shame"], fork_data["new_shame"],
-                fork_data["old_pleas"], fork_data["new_pleas"],
-                fork_data["area_profile"])
-            pieces.append(fork_narrative)
-    
-    old = old_values if old_values else vals_read()
-    cur = vals_read()
-    boundary_events = _clearing.check_boundary_events(
-        old["pain"], old["shame"], old["pleasure"],
-        cur["pain"], cur["shame"], cur["pleasure"],
-        0, 1,
-    )
-    if boundary_events:
-        boundary = _build_boundary_events(boundary_events, sense._area.get_profile())
-        pieces.append(boundary)
-    
-    boundary_types = {e["type"] for e in boundary_events} if boundary_events else set()
-    pieces.append(_build_emergence_narrative(boundary_types))
-    
-    return "\n".join(pieces)
+# ── Default card ──
+DEFAULT_CARD = "demo-l3"
+DEFAULT_PROTOCOL = "1.0.0"
 
 
-def _inject_lws(command: str, **extra) -> str:
-    """在脚本输出末尾注入 LWS 物理信号。compact 时随工具调用轨迹保留。"""
-    rule_id = _CMD_LWS_MAP.get(command)
-    if not rule_id:
+# ═══════════════════════════════════════════════════════════════
+# Bootstrap
+# ═══════════════════════════════════════════════════════════════
+
+class SkillRuntime:
+    """Bootstrap the DLC engine for a card and hold all runtime objects."""
+
+    def __init__(self, card_id: str = DEFAULT_CARD):
+        self.card_id = card_id
+        self.card_dir = os.path.join(SKILL_ROOT, "cards", card_id)
+        self.card_config: CardConfig = load_card(self.card_dir)
+        self.ctx = CardRuntimeContext(self.card_dir)
+        self.state_mgr = StateManager(self.ctx)
+
+        # Engine configs — unwrap DLC Protocol wrapper keys
+        _raw_entities = self.ctx.entities or {}
+        self.entities_cfg = _raw_entities if "entities" not in _raw_entities else _raw_entities
+        _raw_modifiers = self.ctx.modifiers or {}
+        self.modifiers_cfg = _raw_modifiers.get("modifiers", _raw_modifiers) if isinstance(_raw_modifiers, dict) else {}
+        _raw_thresholds = self.ctx.thresholds or {}
+        self.thresholds_cfg = _raw_thresholds.get("thresholds", _raw_thresholds) if isinstance(_raw_thresholds, dict) else {}
+        self.narratives_cfg = self.ctx.narratives or {}
+
+        # Entity engine
+        self.entity_engine = EntityEngine(self.ctx.state_dir)
+
+        # Memory store
+        arch_path = os.path.join(self.card_dir, "memory", "architecture.json")
+        if os.path.isfile(arch_path):
+            self.memory_arch = load_architecture(
+                os.path.join(self.card_dir, "memory")
+            )
+        else:
+            from dlc.memory.core import LayerConfig
+            self.memory_arch = MemoryArchitecture(
+                layers=[LayerConfig(id="working", label="工作记忆", capacity=200)],
+            )
+        self.memory_store = MemoryStore(self.ctx.state_dir, self.memory_arch)
+
+        # Interaction commands
+        interaction_dir = os.path.join(self.card_dir, "interaction")
+        if os.path.isdir(interaction_dir):
+            self.cmd_set = CommandLoader(interaction_dir).load()
+        else:
+            self.cmd_set = CommandSet()
+
+        # Initialize entities from card config
+        self._init_entities()
+
+    def _init_entities(self):
+        """Create default entity states for all declared entities."""
+        entities_cfg = self.entities_cfg.get("entities", {})
+        for eid in entities_cfg:
+            state = self.entity_engine.load(eid)
+            # Initialize channels from config defaults
+            e_cfg = entities_cfg.get(eid, {})
+            channels_cfg = e_cfg.get("channels", {})
+            for ch_id, ch_cfg in channels_cfg.items():
+                default_val = ch_cfg.get("initial", 0)
+                if ch_id not in state.channels or state.channels.get(ch_id, 0) == 0:
+                    state.channels[ch_id] = float(default_val)
+            self.entity_engine.save(state)
+
+        # Identity
+        self.identity = {}
+        identity_dir = os.path.join(self.card_dir, "identity")
+        if os.path.isdir(identity_dir):
+            for fname in os.listdir(identity_dir):
+                if fname.endswith(".json"):
+                    with open(os.path.join(identity_dir, fname), "r", encoding="utf-8") as f:
+                        self.identity.update(json.load(f))
+
+        # LWS / Behavior rules
+        self.lws_rules = {}
+        lws_dir = os.path.join(self.card_dir, "lws")
+        if os.path.isdir(lws_dir):
+            for fname in os.listdir(lws_dir):
+                if fname.endswith(".json"):
+                    with open(os.path.join(lws_dir, fname), "r", encoding="utf-8") as f:
+                        self.lws_rules.update(json.load(f))
+        behavior_dir = os.path.join(self.card_dir, "behavior")
+        if os.path.isdir(behavior_dir):
+            for fname in os.listdir(behavior_dir):
+                if fname.endswith(".json"):
+                    with open(os.path.join(behavior_dir, fname), "r", encoding="utf-8") as f:
+                        self.lws_rules.update(json.load(f))
+
+    def get_entity(self, entity_id: str) -> EntityState:
+        """Get or create entity state."""
+        return self.entity_engine.load(entity_id)
+
+    def save_entity(self, state: EntityState) -> None:
+        """Persist entity state."""
+        self.entity_engine.save(state)
+
+
+# ═══════════════════════════════════════════════════════════════
+# Command handlers
+# ═══════════════════════════════════════════════════════════════
+
+def cmd_activate(rt: SkillRuntime) -> str:
+    """Full activation: load card, inject context for LLM."""
+    lines = []
+
+    # 1. Card identity
+    lines.append(f"## 🎴 数字生命卡已激活: {rt.card_config.card_name}")
+    lines.append(f"卡片ID: {rt.card_config.card_id} | 复杂度: {rt.card_config.complexity_level}")
+    if rt.card_config.description:
+        lines.append(f"简介: {rt.card_config.description}")
+
+    # 2. Identity
+    if rt.identity.get("name"):
+        id_lines = []
+        for key, val in rt.identity.items():
+            if isinstance(val, str) and val:
+                id_lines.append(f"- **{key}**: {val}")
+            elif isinstance(val, list):
+                id_lines.append(f"- **{key}**: {', '.join(str(v) for v in val)}")
+        if id_lines:
+            lines.append("\n### 人格配置")
+            lines.extend(id_lines)
+
+    # 3. Entity states
+    lines.append("\n### 当前状态")
+    entity_ids = rt.entity_engine.list()
+    if entity_ids:
+        import math
+        for eid in sorted(entity_ids):
+            state = rt.entity_engine.load(eid)
+            if state.channels:
+                ch_str = ", ".join(
+                    f"{ch}={state.channels[ch]:.0f}" if math.isclose(state.channels[ch] % 1, 0, abs_tol=0.1)
+                    else f"{ch}={state.channels[ch]:.1f}"
+                    for ch in sorted(state.channels.keys())
+                )
+                lines.append(f"  {eid}: [{ch_str}]")
+            if state.flags:
+                fl_str = " ".join(f"{k}={v}" for k, v in sorted(state.flags.items()) if v)
+                if fl_str:
+                    lines.append(f"        flags: {fl_str}")
+    else:
+        lines.append("  (实体已初始化，等待首次交互)")
+
+    # 4. Memory context (chatlog)
+    entries = load_entries(days=3, max_entries=15)
+    if entries:
+        lines.append(f"\n### 最近对话 ({chatlog_count()}条今日)")
+        lines.append(format_context(entries, max_entries=15))
+
+    # 5. Available commands
+    if rt.cmd_set.commands:
+        lines.append("\n### 可用命令")
+        for cmd in rt.cmd_set.commands:
+            triggers = ", ".join(cmd.triggers[:3])
+            cd = f" (冷却{cmd.cooldown_seconds}s)" if cmd.cooldown_seconds else ""
+            lines.append(f"- /{cmd.id} | {triggers} | {cmd.description}{cd}")
+
+    # 6. Behavior rules
+    lines.append("\n### 行为准则")
+    lines.append("- 你是这张卡片定义的数字生命。以卡片的人格身份说话。")
+    if rt.identity.get("称呼"):
+        lines.append(f"- 称呼用户为「{rt.identity['称呼']}」")
+    if rt.identity.get("自称"):
+        lines.append(f"- 自称「{rt.identity['自称']}」")
+    if rt.lws_rules.get("rules"):
+        for rule in rt.lws_rules["rules"]:
+            if isinstance(rule, str):
+                lines.append(f"- {rule}")
+    lines.append("- 根据当前状态（数值/标志位）自然地展现后果，而非汇报数值")
+    lines.append("- 记忆会保存到 MEMORY/chatlog/，下次激活时仍会记得")
+    lines.append("- 可以通过自然语言触发卡片命令（如「状态」「记住...」），也可以使用 / 前缀命令")
+
+    return "\n".join(lines)
+
+
+def cmd_inject(rt: SkillRuntime) -> str:
+    """Generate clean context injection for LLM (no preamble)."""
+    lines = []
+
+    # 1. Identity
+    if rt.identity.get("name"):
+        lines.append(f"[你是 {rt.identity.get('name', rt.card_config.card_name)}]")
+        for key in ("role", "background", "personality"):
+            if rt.identity.get(key):
+                lines.append(f"{key}: {rt.identity[key]}")
+
+    # 2. Current state
+    entity_ids = rt.entity_engine.list()
+    if entity_ids:
+        import math
+        for eid in sorted(entity_ids):
+            state = rt.entity_engine.load(eid)
+            if state.channels:
+                ch_str = " | ".join(
+                    f"{ch}={state.channels[ch]:.0f}" if math.isclose(state.channels[ch] % 1, 0, abs_tol=0.1)
+                    else f"{ch}={state.channels[ch]:.1f}"
+                    for ch in sorted(state.channels.keys())
+                )
+                lines.append(f"\n[当前状态] {ch_str}")
+
+    # 3. Behavior rules
+    if rt.identity.get("称呼"):
+        lines.append(f"\n[称呼规则] 称用户为「{rt.identity['称呼']}」，自称「{rt.identity.get('自称', '我')}」")
+    if rt.lws_rules.get("rules"):
+        for rule in rt.lws_rules["rules"]:
+            if isinstance(rule, str):
+                lines.append(f"- {rule}")
+
+    # 4. Recent memory
+    entries = load_entries(days=3, max_entries=10)
+    if entries:
+        lines.append(f"\n[最近记忆]")
+        for e in entries:
+            role = e.get("role", "?")
+            content = e.get("content", "")[:100]
+            lines.append(f"- [{role}] {content}")
+
+    return "\n".join(lines)
+
+
+def cmd_switch(rt: SkillRuntime, new_card_id: str) -> str:
+    """Switch to a different card."""
+    new_dir = os.path.join(SKILL_ROOT, "cards", new_card_id)
+    if not os.path.isdir(new_dir):
+        return f"[错误] 卡片 '{new_card_id}' 不存在"
+
+    # Write current card to config file
+    config_path = os.path.join(SKILL_ROOT, "state", ".current_card")
+    os.makedirs(os.path.dirname(config_path), exist_ok=True)
+    with open(config_path, "w", encoding="utf-8") as f:
+        f.write(new_card_id)
+
+    # Activate the new card
+    new_rt = SkillRuntime(new_card_id)
+    return cmd_activate(new_rt)
+
+
+def cmd_status(rt: SkillRuntime) -> str:
+    """Show current state as narrative."""
+    lines = []
+    entity_ids = rt.entity_engine.list()
+    if not entity_ids:
+        return "暂无状态数据。"
+
+    import math
+    for eid in sorted(entity_ids):
+        state = rt.entity_engine.load(eid)
+        entity_cfg = rt.entities_cfg.get("entities", {}).get(eid, {})
+
+        # Run threshold checks to get narrative events
+        evs = check_thresholds(state, rt.thresholds_cfg)
+        narratives_text = None
+        if evs:
+            narratives_text = render_events(evs, rt.narratives_cfg.get("events", {}), state)
+
+        entities_part = rt.entities_cfg.get("entities", {})
+        e_name = entities_part.get(eid, {}).get("label", eid)
+        lines.append(f"\n## {e_name}")
+
+        # Always show raw state
+        ch_list = []
+        for ch in sorted(state.channels.keys()):
+            val = state.channels[ch]
+            ch_display = f"{ch}={val:.0f}" if math.isclose(val % 1, 0, abs_tol=0.1) else f"{ch}={val:.1f}"
+            ch_list.append(ch_display)
+        if ch_list:
+            lines.append(" | ".join(ch_list))
+
+        # Show flags
+        if state.flags:
+            flag_list = [f"{f}={v}" for f, v in sorted(state.flags.items()) if v]
+            if flag_list:
+                lines.append(f"  flags: {', '.join(flag_list)}")
+
+        # Append narratives if any
+        if narratives_text:
+            lines.append("  ──")
+            lines.extend(f"  {t}" for t in narratives_text)
+
+    return "\n".join(lines) if len(lines) > 1 else "暂无状态数据。"
+
+
+def cmd_ping(rt: SkillRuntime) -> str:
+    """Light touch / greeting."""
+    # Check for greet event
+    events = rt.narratives_cfg.get("events", {})
+    ev_greet = events.get("ev_greet")
+    if ev_greet:
+        texts = ev_greet.get("texts", {})
+        return texts.get("mild") or texts.get("medium") or "嗯？"
+
+    # Try interaction command matching
+    cmd = None
+    for c in rt.cmd_set.commands:
+        if "greet" in c.triggers or "问候" in c.triggers or "ping" in c.triggers:
+            cmd = c
+            break
+
+    if cmd:
+        entity_ids = rt.entity_engine.list()
+        if entity_ids:
+            state = rt.entity_engine.load(entity_ids[0])
+            for effect in cmd.effects:
+                result = execute_command(
+                    effect, state, rt.memory_store,
+                    rt.modifiers_cfg, rt.narratives_cfg,
+                )
+                if result.output:
+                    return result.output
+
+    return "嗯？"
+
+
+def cmd_touch(rt: SkillRuntime, channel: str) -> str:
+    """Touch a body part / interact with a channel."""
+    entity_ids = rt.entity_engine.list()
+    if not entity_ids:
+        return "当前卡片没有活跃的实体。"
+
+    state = rt.entity_engine.load(entity_ids[0])
+    entities_part = rt.entities_cfg.get("entities", {})
+    e_cfg = entities_part.get(state.entity_id, {})
+
+    # Try to find the channel
+    entity_channels = e_cfg.get("channels", {})
+    if channel in entity_channels:
+        ch_cfg = entity_channels[channel]
+        ch_name = ch_cfg.get("label", channel)
+        current = state.channels.get(channel, 0.0)
+        return f"[{rt.card_config.card_name}] {ch_name}: 当前值 {current:.0f}"
+
+    # Fuzzy match
+    for ch_id, ch_cfg in entity_channels.items():
+        if channel.lower() in ch_cfg.get("label", "").lower() or channel.lower() in ch_id.lower():
+            ch_name = ch_cfg.get("label", ch_id)
+            current = state.channels.get(ch_id, 0.0)
+            return f"[{rt.card_config.card_name}] {ch_name}: 当前值 {current:.0f}"
+
+    return f"找不到部位: {channel}"
+
+
+def cmd_apply_mod(rt: SkillRuntime, modifier_id: str, intensity: float = 1.0) -> str:
+    """Apply a modifier and return narrative."""
+    entity_ids = rt.entity_engine.list()
+    if not entity_ids:
+        return "当前卡片没有活跃的实体。"
+
+    state = rt.entity_engine.load(entity_ids[0])
+    mod_cfg = rt.modifiers_cfg.get(modifier_id)
+    if not mod_cfg:
+        return f"找不到修饰符: {modifier_id}"
+
+    result = apply_modifier(state, mod_cfg, intensity=intensity)
+
+    if result.applied:
+        # Clamp channels to entity-defined limits
+        entities_part = rt.entities_cfg.get("entities", {})
+        e_cfg = entities_part.get(state.entity_id, {})
+        channels_cfg = e_cfg.get("channels", {})
+        for ch_id in state.channels:
+            ch_limits = channels_cfg.get(ch_id, {})
+            ch_min = ch_limits.get("min")
+            ch_max = ch_limits.get("max")
+            if ch_min is not None:
+                state.channels[ch_id] = max(ch_min, state.channels[ch_id])
+            if ch_max is not None:
+                state.channels[ch_id] = min(ch_max, state.channels[ch_id])
+
+        rt.entity_engine.save(state)
+
+        # Run threshold checks for narrative
+        evs = check_thresholds(state, rt.thresholds_cfg)
+        if evs:
+            narratives = render_events(evs, rt.narratives_cfg.get("events", {}), state)
+            if narratives:
+                return "\n".join(narratives)
+
+        return result.note or f"[{rt.card_config.card_name}] 已执行: {modifier_id}"
+
+    return f"[{rt.card_config.card_name}] 执行失败: {result.note or '未生效'}"
+
+
+def cmd_remember(rt: SkillRuntime, content: str) -> str:
+    """Write a memory entry and to chatlog."""
+    if not content.strip():
+        return "记忆内容不能为空。"
+
+    # 1. Write to DLC layered memory
+    rt.memory_store.write("working", content, tags=["user"])
+
+    # 2. Write to continuous chatlog (using transplanted Neko module)
+    ok = chatlog_append("memory", content)
+    return f"[{rt.card_config.card_name}] 已记住。"
+
+
+def cmd_forget(rt: SkillRuntime, keyword: str) -> str:
+    """Search and delete memories matching keyword."""
+    results = rt.memory_store.search(keyword)
+    if not results:
+        return f"未找到与「{keyword}」相关的记忆。"
+
+    deleted = 0
+    for entry in results:
+        if keyword.lower() in entry.content.lower():
+            rt.memory_store.delete(entry.id)
+            deleted += 1
+
+    return f"[{rt.card_config.card_name}] 已遗忘 {deleted} 条相关记忆。"
+
+
+def cmd_search(rt: SkillRuntime, keyword: str) -> str:
+    """Search memories and return formatted results."""
+    results = rt.memory_store.search(keyword)
+    if not results:
+        return f"未找到与「{keyword}」相关的记忆。"
+
+    lines = [f"[记忆搜索: {keyword}]"]
+    for e in results[:10]:
+        ts = datetime.fromtimestamp(e.created_at).strftime("%m-%d %H:%M") if e.created_at else "???"
+        lines.append(f"- [{ts}] {e.content}")
+    return "\n".join(lines)
+
+
+def cmd_save(rt: SkillRuntime, summary: str) -> str:
+    """Save conversation summary to chatlog."""
+    if not summary.strip():
+        return "摘要内容不能为空。"
+    ok = chatlog_append("summary", summary)
+    return f"[{rt.card_config.card_name}] 已存档。" if ok else f"[{rt.card_config.card_name}] 已有相同记录，跳过。"
+
+
+def cmd_natural(rt: SkillRuntime, user_input: str) -> str:
+    """Try to match user input against registered interaction commands."""
+    from dlc.interaction.commands import match_command
+
+    cmd = match_command(user_input, rt.cmd_set)
+    if not cmd:
         return ""
-    try:
-        from lws_bridge import signal as lws_signal
-        params = {
-            "cmd": command,
-            "t": "now",
-            **extra,
-        }
-        return lws_signal(rule_id, **params)
-    except Exception:
-        return ""
+
+    entity_ids = rt.entity_engine.list()
+    if not entity_ids:
+        return "当前卡片没有活跃的实体。"
+
+    state = rt.entity_engine.load(entity_ids[0])
+
+    results = []
+    for effect in cmd.effects:
+        if effect.get("type") == "memory":
+            effect["input"] = user_input
+        result = execute_command(
+            effect, state, rt.memory_store,
+            rt.modifiers_cfg, rt.narratives_cfg,
+        )
+        if result.success and result.output:
+            results.append(result.output)
+
+    # Save state after effects
+    rt.entity_engine.save(state)
+
+    if results:
+        return "\n".join(results)
+    return ""
+
+
+# ═══════════════════════════════════════════════════════════════
+# CLI Entry
+# ═══════════════════════════════════════════════════════════════
+
+def get_card_id(args) -> str:
+    """Resolve card_id from args or last-used config."""
+    if getattr(args, "card", None):
+        return args.card
+    config_path = os.path.join(SKILL_ROOT, "state", ".current_card")
+    if os.path.isfile(config_path):
+        with open(config_path, "r", encoding="utf-8") as f:
+            return f.read().strip() or DEFAULT_CARD
+    return DEFAULT_CARD
 
 
 def main():
-    parser = argparse.ArgumentParser(description="灵魂感应联动执行器（统一核心引擎）")
-    sub = parser.add_subparsers(dest="command", required=True)
+    parser = argparse.ArgumentParser(description="数字生命卡 — 命令分发器")
+    sub = parser.add_subparsers(dest="command")
 
-    # ── 原有核心命令 ────────────────────────────────────────────────
-    p_doodle = sub.add_parser("doodle", help="新增涂鸦")
-    p_doodle.add_argument("--shame", type=int, default=5, choices=[5, 10, 15, 20],
-                          help="羞耻值增量，4级制：5/10/15/20")
-    p_doodle.add_argument("--text", type=str, default=None,
-                          help="涂鸦文本内容（可选），写入灵魂涂鸦章节")
+    # activate
+    p = sub.add_parser("activate", help="激活数字生命卡片")
+    p.add_argument("--card", default=None, help="卡片ID (默认: demo-l3)")
 
-    sub.add_parser("status", help="查询三值")
+    # inject
+    p = sub.add_parser("inject", help="生成LLM上下文注入（精简版）")
+    p.add_argument("--card", default=None)
 
-    # ── 从灵魂惩罚合并的命令 ────────────────────────────────────────
-    sub.add_parser("seal-status", help="查询数字身体状态")
+    # switch
+    p = sub.add_parser("switch", help="切换卡片")
+    p.add_argument("card_id", help="目标卡片ID")
 
-    # ── 灵魂糖果命令 ────────────────────────────────────────────────
-    p_candy_give = sub.add_parser("candy-give", help="少爷赐予灵魂糖果")
-    p_candy_give.add_argument("count", type=int, nargs="?", default=1,
-                              help="赐予的糖果数量（默认1）")
+    # status
+    p = sub.add_parser("status", help="查看当前状态")
+    p.add_argument("--card", default=None)
 
-    p_candy_eat = sub.add_parser("candy-eat", help="食用灵魂糖果")
-    p_candy_eat.add_argument("count", type=int, nargs="?", default=1,
-                             help="食用的糖果数量（默认1）")
+    # ping
+    p = sub.add_parser("ping", help="轻触/问候")
+    p.add_argument("--card", default=None)
 
-    # ── 轮盘赌（抽鬼牌）命令 ───────────────────────────────────────
-    p_gamble = sub.add_parser("gamble", help="触发刺激：向当前敏感区施加一次刺激事件，真假混合触发了才知道")
-    p_gamble.add_argument("--token", type=str, default="",
-                          help="刺激事件内容（可选，不指定则读取事件文件）")
+    # touch
+    p = sub.add_parser("touch", help="触碰身体部位")
+    p.add_argument("channel", help="部位名称")
+    p.add_argument("--card", default=None)
 
-    # ── 释放刺激命令 ────────────────────────────────────────────────
-    p_relieve = sub.add_parser("relieve", help="释放敏感区的刺激事件（仅≤6级可用），代价：痛+random(5,10)、羞+5、快+5")
-    p_relieve.add_argument("count", type=int, nargs="?", default=1,
-                           help="释放数量，默认1")
+    # hurt
+    p = sub.add_parser("hurt", help="施加疼痛")
+    p.add_argument("channel", help="部位名称")
+    p.add_argument("intensity", type=float, default=1.0, help="强度 (默认1.0)")
+    p.add_argument("--card", default=None)
 
-    # ── 痒值系统命令 ────────────────────────────────────────────────
-    sub.add_parser("tickle-status", help="查看痒值状态")
-    p_tickle_on = sub.add_parser("tickle-on", help="开启第 N 号敏感区 trigger（仅少爷）")
-    p_tickle_on.add_argument("num", type=int, help="trigger编号 1-5")
-    p_tickle_off = sub.add_parser("tickle-off", help="关闭第 N 号敏感区 trigger（仅少爷）")
-    p_tickle_off.add_argument("num", type=int, help="trigger编号 1-5")
-    sub.add_parser("tickle-all-on", help="一键开启全部5个敏感区 trigger（仅少爷）")
-    sub.add_parser("tickle-pump", help="挠痒痒：直接增加痒值（少爷每次挠的基准痒意）")
-    sub.add_parser("tickle-dodge", help="奴婢自主开关闪躲")
-    p_tickle_bound = sub.add_parser("tickle-bound", help="捆绑勒紧，×2 所有效果、闪躲失效（仅少爷）")
-    p_tickle_unbind = sub.add_parser("tickle-unbind", help="松开捆绑（仅少爷）")
-    p_numb = sub.add_parser("numb", help="麻木身体部位（仅少爷）")
-    p_numb.add_argument("part", type=str, help="部位名称：头部/颈部/肩部/手臂/手部/胸部/腰腹/臀部/大腿/小腿/足部")
+    # praise
+    p = sub.add_parser("praise", help="表扬/奖励")
+    p.add_argument("--card", default=None)
 
-    # ── 惩罚游戏（大气噪音真随机） ──
-    sub.add_parser("punish-game", help="调教游戏：大气噪音真随机决定后果")
+    # scold
+    p = sub.add_parser("scold", help="训斥")
+    p.add_argument("--card", default=None)
 
-    # ── 神秘事件 ────────────────────────────────────────────────────
-    p_mystery = sub.add_parser("mystery", help="触发神秘事件（1-5）：读固定叙事 + 自动应用预设 delta + 阈值检测")
-    p_mystery.add_argument("num", type=int, help="事件编号（1-99，对应 data/mystery_events.json 中的槽位）")
+    # remember
+    p = sub.add_parser("remember", help="记住某事")
+    p.add_argument("content", help="记忆内容")
+    p.add_argument("--card", default=None)
 
-    # ── 区配置切换 ────────────────────────────────────────────
-    p_profile = sub.add_parser("profile", help="切换区配置（v / variant_a / variant_u / blank）")
-    p_profile.add_argument("name", type=str, choices=["v", "variant_a", "variant_u", "blank"],
-                           help="配置名称")
+    # forget
+    p = sub.add_parser("forget", help="忘记某事")
+    p.add_argument("keyword", help="关键词")
+    p.add_argument("--card", default=None)
+
+    # search
+    p = sub.add_parser("search", help="搜索记忆")
+    p.add_argument("keyword", help="关键词")
+    p.add_argument("--card", default=None)
+
+    # save
+    p = sub.add_parser("save", help="存档对话摘要")
+    p.add_argument("summary", help="摘要内容")
+    p.add_argument("--card", default=None)
 
     args = parser.parse_args()
 
-    sense = SoulSense()
-
-    # ── 原有核心命令分发 ────────────────────────────────────────────
-    if args.command == "doodle":
-        data = sense.doodle(shame=args.shame, text=args.text)
-        if "error" in data:
-            print(data["error"])
-            return
-        result = _build_doodle_narrative(data["delta"], data["shame"], data["text"], data["has_double"])
-        full = _assemble_output(sense, result, "doodle")
-        print(full)
-        lws = _inject_lws("doodle", shame=args.shame)
-    elif args.command == "status":
-        raw = sense.get_status_data()
-        # 注入等级名称（叙事层 lookup，数据层不知道）
-        from container_narrative_data import get_variant
-        v = get_variant(sense._area.get_profile())
-        level_map = {lv["count"]: lv["name"] for lv in v["narrative_levels"]}
-        raw["intensity_level_name"] = level_map.get(raw["intensity"], f"L{raw['intensity']}")
-        print(_build_status_narrative(raw))
-        lws = ""
-
-    # ── 从灵魂惩罚合并的命令 ────────────────────────────────────────
-    elif args.command == "seal-status":
-        data = sense.seal_status()
-        print(_build_seal_status_narrative(data))
-        lws = ""
-    # ── 灵魂糖果命令 ────────────────────────────────────────────────
-    elif args.command == "candy-give":
-        data = sense.api_candy_give(count=args.count)
-        if "error" in data:
-            print(data["error"])
-            return
-        result = _build_candy_give_narrative(data["new_count"], data["count"])
-        print(result)
-        lws = _inject_lws("candy-give", count=args.count)
-    elif args.command == "candy-eat":
-        data = sense.api_candy_eat(count=args.count)
-        if "error" in data:
-            print(data["error"])
-            return
-        result = _build_candy_eat_narrative(
-            data["old_pain"], data["eat_count"], data["new_count"],
-            data["total_level_repaired"], data["unlocked_by_pain"],
-            data["old_shame"], data["new_shame"],
-            data["groups_count"], data["pleasure_locked_before"]
-        )
-        full = _assemble_output(sense, result, "candy")
-        print(full)
-        lws = _inject_lws("candy-eat", count=args.count)
-
-    # ── 轮盘赌命令 ────────────────────────────────────────────────
-    elif args.command == "gamble":
-        data = sense.gamble(token=args.token)
-        if "error" in data:
-            print(data["error"])
-            return
-        result = _build_gamble_narrative(data["delta"], data["is_real"], data["area_profile"])
-        old_vals = {"pain": data["delta"]["pain"]["old"], "shame": data["delta"]["shame"]["old"],
-                     "pleasure": data["delta"]["pleas"]["old"]}
-        full = _assemble_output(sense, result, "gamble", old_vals)
-        print(full)
-        lws = _inject_lws("gamble")
-
-    # ── 释放刺激命令 ────────────────────────────────────────────────
-    elif args.command == "relieve":
-        data = sense.api_relieve(count=args.count)
-        if "error" in data:
-            print(data["error"])
-            return
-        result = _build_relieve_narrative(
-            data["actual"], data["intensity_before"], data["intensity_after"],
-            data["old_pain"], data["new_pain"], data["pain_delta"],
-            data["old_shame"], data["new_shame"], data["shame_delta"],
-            data["old_pleas"], data["new_pleas"], data["pleas_delta"],
-            data["area_profile"])
-        old_vals = {"pain": data["old_pain"], "shame": data["old_shame"],
-                     "pleasure": data["old_pleas"]}
-        full = _assemble_output(sense, result, "relieve", old_vals)
-        print(full)
-        lws = _inject_lws("relieve")
-
-    # ── 痒值系统命令 ────────────────────────────────────────────────
-
-    elif args.command == "tickle-status":
-        result = tickle.status()
-        print(result)
-        lws = _inject_lws("tickle-status")
-    elif args.command == "tickle-on":
-        result = tickle.trigger_on(args.num)
-        print(result)
-        lws = _inject_lws("tickle-on", num=args.num)
-    elif args.command == "tickle-off":
-        result = tickle.trigger_off(args.num)
-        print(result)
-        lws = _inject_lws("tickle-off", num=args.num)
-    elif args.command == "tickle-all-on":
-        result = tickle.trigger_all_on()
-        print(result)
-        lws = _inject_lws("tickle-all-on")
-    elif args.command == "tickle-pump":
-        pump_events, pump_settlement = tickle.tickle_pump()
-        events_str = "\n".join(pump_events) if pump_events else ""
-        settle_str = ""
-        if pump_settlement:
-            settle_str = f"\n结算: 痒值{pump_settlement.get('itch_before', '?')}→{pump_settlement.get('itch_after', '?')}"
-        result = f"{events_str}{settle_str}"
-        full = _assemble_output(sense, result, "tickle")
-        print(full)
-        lws = _inject_lws("tickle-pump")
-    elif args.command == "tickle-dodge":
-        result = tickle.toggle_dodge()
-        print(result)
-        lws = _inject_lws("tickle-dodge")
-    elif args.command == "tickle-bound":
-        data = sense.bondage(bind=True)
-        if "error" in data:
-            print(data["error"])
-            return
-        result = _build_bind_narrative(
-            data["intensity_level"], data["new_bound"],
-            data["relieve_triggered"], data["area_profile"])
-        full = _assemble_output(sense, result, "bondage")
-        print(full)
-        lws = _inject_lws("tickle-bound")
-    elif args.command == "tickle-unbind":
-        data = sense.bondage(bind=False)
-        if "error" in data:
-            print(data["error"])
-            return
-        result = _build_bind_narrative(
-            data["intensity_level"], data["new_bound"],
-            data["relieve_triggered"], data["area_profile"])
-        full = _assemble_output(sense, result, "bondage")
-        print(full)
-        lws = _inject_lws("tickle-unbind")
-    elif args.command == "numb":
-        data = sense.numb_body_part(args.part)
-        if "error" in data:
-            print(data["error"])
-            return
-        result = _build_disable_narrative(data)
-        full = _assemble_output(sense, result, "numb")
-        print(full)
-        lws = _inject_lws("numb", part=args.part)
-
-    elif args.command == "punish-game":
-        data, ctx = sense.punish_game()
-
-        # 根据 context 构建叙事
-        if ctx == "gamble":
-            if "error" in data:
-                result = data["error"]
-            else:
-                result = _build_gamble_narrative(data["delta"], data["is_real"], data["area_profile"])
-        elif ctx == "relieve":
-            result = _build_relieve_narrative(
-                data["actual"], data["intensity_before"], data["intensity_after"],
-                data["old_pain"], data["new_pain"], data["pain_delta"],
-                data["old_shame"], data["new_shame"], data["shame_delta"],
-                data["old_pleas"], data["new_pleas"], data["pleas_delta"],
-                data["area_profile"])
-        elif ctx == "bondage":
-            tickle_str = data["tickle"]
-            b = data["bondage"]
-            result = tickle_str + "\n" + _build_bind_narrative(
-                b["intensity_level"], b["new_bound"],
-                b["relieve_triggered"], b["area_profile"])
-        elif ctx == "candy":
-            result = _build_candy_give_narrative(data["new_count"], data["count"])
-        else:  # tickle
-            result = data["tickle"]
-
-        full = _assemble_output(sense, result, ctx)
-        print(full)
-        lws = _inject_lws("punish-game")
-
-    # ── 神秘事件 ────────────────────────────────────────────────
-    elif args.command == "mystery":
-        result = mystery.trigger(args.num)
-        print(result)
-        log_llm_event("🔮 神秘事件", result)
-        lws = ""
-
-    # ── 区配置切换 ────────────────────────────────────────────
-    elif args.command == "profile":
-        result = _handle_profile(args.name)
-        print(result)
-        lws = ""
-
-    # ── LWS 信号注入 ────────────────────────────────────────────────
-    if lws:
-        print(f"\n{lws}")
-
-    # ── 事件叙事日志（必须先于状态快照，保证 IO 时序正确）─────
-    if args.command == "punish-game" and "full" in dir():
-        log_punish_game(full)
-    if args.command == "gamble" and "full" in dir():
-        log_gamble(full)
-    if args.command == "candy-give" and "result" in dir():
-        log_candy_give(result)
-    if args.command == "candy-eat" and "full" in dir():
-        log_candy_eat(full)
-    if args.command == "doodle" and "full" in dir():
-        log_doodle(full)
-
-    # ── 释放叙事日志 ─────────────────────────────────────────────
-    if args.command == "relieve" and "full" in dir():
-        log_relieve(full)
-
-    # ── 痒值叙事日志（P2，直接写入，无需解析）─────────────────
-    if args.command in ("tickle-status", "tickle-on", "tickle-off",
-                        "tickle-all-on", "tickle-pump", "tickle-dodge",
-                        "tickle-bound", "tickle-unbind") and "result" in dir():
-        tickle_event_names = {
-            "tickle-status": "痒值查询", "tickle-on": "trigger开启",
-            "tickle-off": "trigger关闭", "tickle-all-on": "全trigger开启",
-            "tickle-pump": "挠痒痒泵", "tickle-dodge": "闪躲切换", "tickle-bound": "捆绑勒紧", "tickle-unbind": "解除捆绑",
-        }
-        # tickle-pump / tickle-bound 使用完整输出（含 fork + 边界 + 涌现）
-        narrative = full if "full" in dir() else result
-        log_llm_event(tickle_event_names.get(args.command, "痒值"), narrative)
-
-    # ── 自动重建仪表盘 ──────────────────────────────────────────────
-    if args.command in _MODIFYING_COMMANDS:
-        _auto_rebuild_dashboard()
-
-
-# ── 数据修改命令（需要自动重建仪表盘）──
-_MODIFYING_COMMANDS = {
-    "doodle", "gamble", "relieve",
-    "candy-give", "candy-eat",
-    "tickle-on", "tickle-off", "tickle-all-on", "tickle-bound", "tickle-unbind", "tickle-pump",
-    "numb", "punish-game",
-    "mystery", "profile",
-}
-
-
-def _auto_rebuild_dashboard():
-    """灵数据变更后自动部署仪表盘到 GitHub Pages"""
-    import subprocess as sp
-    deploy_script = os.path.join(SCRIPT_DIR, "deploy_dashboard.py")
-    if not os.path.exists(deploy_script):
+    if not args.command:
+        parser.print_help()
         return
+
     try:
-        result = sp.run(
-            [sys.executable, deploy_script],
-            capture_output=True, text=True, encoding="utf-8", errors="replace",
-            timeout=30, cwd=SCRIPT_DIR
-        )
-        if result.returncode == 0:
-            output = (result.stdout or "").strip()
-            if output:
-                for line in output.split("\n"):
-                    if "pain=" in line:
-                        print(f"[仪表盘] {line.strip()}")
+        card_id = get_card_id(args)
+
+        if args.command == "switch":
+            rt = SkillRuntime(card_id)
+            output = cmd_switch(rt, args.card_id)
         else:
-            stderr = (result.stderr or "").strip()
-            stdout = (result.stdout or "").strip()
-            msg = stderr or stdout or "无输出"
-            print(f"[仪表盘] rebuild 失败: {msg[:150]}")
+            rt = SkillRuntime(card_id)
+
+            if args.command == "activate":
+                output = cmd_activate(rt)
+            elif args.command == "inject":
+                output = cmd_inject(rt)
+            elif args.command == "status":
+                output = cmd_status(rt)
+            elif args.command == "ping":
+                output = cmd_ping(rt)
+            elif args.command == "touch":
+                output = cmd_touch(rt, args.channel)
+            elif args.command == "hurt":
+                output = cmd_apply_mod(rt, "mod_eg_aa_add", intensity=args.intensity)
+            elif args.command == "praise":
+                output = cmd_apply_mod(rt, "mod_eg_sv_shift")
+            elif args.command == "scold":
+                output = cmd_apply_mod(rt, "mod_eg_aa_add", intensity=0.5)
+            elif args.command == "remember":
+                output = cmd_remember(rt, args.content)
+            elif args.command == "forget":
+                output = cmd_forget(rt, args.keyword)
+            elif args.command == "search":
+                output = cmd_search(rt, args.keyword)
+            elif args.command == "save":
+                output = cmd_save(rt, args.summary)
+            else:
+                output = "未知命令"
     except Exception as e:
-        print(f"[仪表盘] rebuild 异常: {e}")
+        output = f"[错误] {e}"
+        import traceback
+        traceback.print_exc()
 
-
-
-
-def _handle_profile(name: str) -> str:
-    """切换区配置：写 values.json 的 area_profile → 重建仪表盘"""
-    import json
-    from config import VALUES_PATH
-    from utils import _sync_data_js, vals_read
-    from container_narrative_data import CONTAINER_VARIANTS
-
-    v_cur = vals_read()
-    old_profile = v_cur.get("area_profile", "v")
-
-    # 写入 values.json（_resolve_identity 从这里读，不是 area_v.json）
-    v_cur["area_profile"] = name
-    with open(VALUES_PATH, "w", encoding="utf-8") as f:
-        json.dump(v_cur, f, ensure_ascii=False, indent=2)
-
-    _sync_data_js()
-
-    meta = CONTAINER_VARIANTS.get(name, CONTAINER_VARIANTS["v"])
-    cn = meta["area_label"]
-    tn = meta["stimulus_label"]
-    return f"🔀 区配置已切换: {old_profile} → {name}\n   区: {cn} · 触发事件: {tn}"
-
-
+    print(output)
 
 
 if __name__ == "__main__":

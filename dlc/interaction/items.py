@@ -58,42 +58,18 @@ class ItemLoader:
             return []
         with open(path, encoding="utf-8") as f:
             raw = json.load(f)
-
-        items = []
-        for i in raw.get("items", []):
-            # v1.1: effect (singular) → effects (array)
-            effects = i.get("effects")
-            if effects is None and "effect" in i:
-                eff = i["effect"]
-                effects = [eff] if isinstance(eff, dict) else eff
-
-            # v1.1: type mapping — explicit type field takes priority
-            itype = i.get("type", "")
-            if itype:
-                pass  # use as-is (consumable/equippable/permanent/...)
-            elif "stackable" in i:
-                # Infer from stackable: true→consumable, false→permanent.
-                # ⚠️ equippable CANNOT be inferred from stackable alone —
-                #    must have explicit type field in old format.
-                itype = "consumable" if i["stackable"] else "permanent"
-            else:
-                itype = "consumable"  # safe default
-
-            # v1.1: max_stack → max_quantity
-            max_qty = i.get("max_quantity") or i.get("max_stack", 1)
-
-            items.append(ItemConfig(
-                id=i.get("id") or i.get("name", ""),
-                name=i.get("name", i.get("id", "")),
+        return [
+            ItemConfig(
+                id=i["id"], name=i.get("name", ""),
                 description=i.get("description", ""),
-                type=itype,
-                effects=effects or [],
-                max_quantity=max_qty,
+                type=i.get("type", ""),
+                effects=i.get("effects", []),
+                max_quantity=i.get("max_quantity", 1),
                 use_cooldown_seconds=i.get("use_cooldown_seconds", 0),
                 rarity=i.get("rarity", "common"),
-            ))
-
-        return items
+            )
+            for i in raw.get("items", [])
+        ]
 
 
 # ═══════════════════════════════════════════════════════════════

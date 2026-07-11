@@ -30,4 +30,6 @@ MODULE_LEVELS = [
     ("L2", {"identity", "body", "engine", "memory", "behavior"}),
     ("L3", {"identity", "body", "engine", "memory", "behavior",
             "interaction"}),
+    ("L4", {"identity", "body", "engine", "memory", "behavior",
+            "interaction", "vault"}),
 ]

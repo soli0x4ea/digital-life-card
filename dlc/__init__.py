@@ -37,10 +37,10 @@ from dlc.engine import (
     render_event,
 )
 
-# P2: Memory (v1.1 dual-core linear) + LWS + Scheduler
+# P2: Memory + LWS + Scheduler (L2)
 from dlc.memory import (
-    ChatlogStore, TimelineStore, MemorySearch,
-    import_chatlog, import_timeline,
+    MemoryArchitecture, LayerConfig, MemoryStore, MemoryEntry,
+    load_architecture, inject_memory_context,
 )
 from dlc.behavior import LWSLoader, Ruleset, RuleConfig, evaluate_active_rules, generate_lws_prompt
 from dlc.scheduler import ScheduleLoader, ScheduleConfig, ScheduleEngine
@@ -79,9 +79,9 @@ __all__ = [
     "ModifierResult", "calc_delta", "apply_effect", "apply_flag_toggle", "apply_modifier",
     "ThresholdEvent", "check_thresholds",
     "render_event",
-    # P2 Memory (v1.1)
-    "ChatlogStore", "TimelineStore", "MemorySearch",
-    "import_chatlog", "import_timeline",
+    # P2 Memory
+    "MemoryArchitecture", "LayerConfig", "MemoryStore", "MemoryEntry",
+    "load_architecture", "inject_memory_context",
     # P2 LWS
     "LWSLoader", "Ruleset", "RuleConfig", "evaluate_active_rules", "generate_lws_prompt",
     # P2 Scheduler

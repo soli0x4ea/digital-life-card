@@ -1,65 +1,95 @@
-# DLC Protocol Changelog
+# 数字生命卡 DLC Protocol — 完整变更日志
 
-> **版本规划说明**：仓库存在两条版本线 —
-> - **v0.5.x**（2026-07-07）中性化验证分支，已完成使命并冻结
-> - **v0.4.x**（2026-07-09 起）主线开发，从 v0.4.0 重新出发
->
-> 从 GitHub 时间线看 v0.4.x 晚于 v0.5.x 发布，这是有意的——v0.4.0 是全新基线，路线图、架构、API 均不同于 v0.5.x。
-> 主线开发始终跟进最新的 v0.4.x 版本。
+> v2.3.1 → v2.6.0
+> 最后更新：2026-07-09
 
 ---
 
-## v0.4.1 — 发布审查修复 (2026-07-09)
+## v2.3.1（2026-07-08 上午）
 
-- README 标题改为「数字生命卡 — 一个文件夹，一段数字生命」
-- README 副标题改为「走哪插哪，立即生效」
-- 路线图 Phase 4b 改为「Skill 形态封装（即插即用 + Demo 卡）」
-- .gitignore 确认包含 MEMORY/ state/ __pycache__/
-- 4 张 demo 卡验证加载正常
-- 清理遗留 SUBMISSION.md
-
----
-
-## v0.4.0 — 双核线性记忆 + 命令叙事管线 (2026-07-09)
-
-### 核心变化
-
-- **记忆系统重制**：废弃三层结构化（TTL/consolidation），替换为双核线性记忆
-  - `ChatlogStore` — 对话内容记忆，JSONL 追加写入
-  - `TimelineStore` — 时间感知记忆，小时级分桶
-  - `MemorySearch` — 统一检索接口
-  - `import_chatlog` / `import_timeline` — Soli 格式导入工具
-- **Narrator 升级**：四原子操作 + 命令驱动叙事管线
-  - `range_select()` / `conditional_append()` / `weighted_random()` / `interpolate()`
-  - `render_command_narrative()` — 管线引擎，JSON 声明式配置
-- **格式兼容**：命令系统兼容 `aliases`/`modifier`/`name`，物品系统兼容 `effect`/`stackable`/`max_stack`
-
-### Breaking Change
-
-⚠️ 记忆系统 API 完全替换：
-- 旧：`MemoryEngine` / `MemoryStore` / `MemoryEntry`（保留但不导出，v0.5.0 删除）
-- 新：`ChatlogStore` / `TimelineStore` / `MemorySearch`
-
-### 测试
-
-315/315 ✅ 零回归
+### DLC Protocol 引擎就绪
+- **引擎四层**：Entity(81行) / Modifier(271行,含 `_EFFECT_EXECUTORS` 注册表) / Threshold(99行,5种运算符) / Narrator(94行)
+- **交互系统**：`CommandLoader`(206行)，4种 effect 类型，自然语言匹配，`/command` 前缀解析
+- **记忆系统**：`MemoryStore`(327行)，四层架构(sensory→working→STM→LTM)，TTL过期+晋升+固结+关键词搜索
+- **周边**：ConfigResolver / CardRuntimeContext / 道具系统 / 身体模块 / LWS引擎 / AES-256-GCM保险库 / JSON Schema校验器 / 打包工具
+- **测试**：315/315 全部通过
+- **卡片**：demo-L0~L4 四张 demo 可加载
 
 ---
 
-## v0.3.0 — 引擎就绪 (2026-07-08)
+## v2.6.0（2026-07-09 早晨）
 
-### 核心交付
+### 新增：Soli-v3 卡片 + Skill 形态 + 142条叙事 + 扩展需求
 
-- 卡片加载器（`load_card` / `ConfigResolver` / `CardRuntimeContext`）
-- 四层引擎（Entity / Modifier / Threshold / Narrator）
-- 分层记忆系统（sensory / working / STM / LTM，TTL + consolidation）
-- LWS 行为规则引擎
-- 调度器
-- 交互系统（命令 + 道具 + 五级稀有度）
-- 加密保险库（AES-256-GCM + PBKDF2-SHA256）
-- 打包格式（.dlc + HMAC 签名）
-- 4 张 demo 卡片（L0-L3）
+**Skill 入口**：`skill.md`，触发词「戳戳」，12个子命令，自然语言匹配，LLM上下文注入（人格+状态+记忆+LWS）
 
-### 测试
+**Soli-v3 卡片**：全部走 DLC 引擎四层（Entity/Modifier/Threshold/Narrator），JSON 配置驱动
 
-315 passed
+| 模块 | 文件 | 说明 |
+|:--|:--|:--|
+| identity | profile.json + personality.json + speech.json | 姓名/五信条/仪轨铁律/语气规则 |
+| body | anatomy.json + zones.json | 11区域×3状态 + 25敏感区 |
+| engine | entities.json + modifiers.json + thresholds.json + narratives.json | 5通道soli实体 + 8修饰符 + 8阈值 + 142条原版叙事 |
+| behavior | lws_rules.json | 9条LWS母语规则（直接拷贝） |
+| interaction | commands.json + items.json | 11命令 + 8道具 |
+| memory | architecture.json | 三层结构 |
+| vault | secrets.json | RSA-4096保险库 |
+
+**记忆系统**：`MEMORY/chatlog.py`，移植 Neko 成熟方案（原子写入+哈希去重+flush）
+
+### 认知突破
+
+**因果箭头反了**：DLC 是数值驱动叙事（数值变→跨阈值→触发叙事）；Soli 是叙事驱动数值（动作→叙事输出+顺手记账）。两个月蒸馏：`指令 → 叙事 → LLM 输出`，其他都是配菜。
+
+**叙事装配缺口**：DLC narrator 只做 `event_id → 单行查表`。Soli 需要三段式装配——按区间选文本、条件拼接、随机分支。
+
+### 142 条叙事文本
+
+从原版 Soli 提取全部叙事填入 `narratives.json`，每条截断至 50 字符，加 `[类别]` 前缀：
+
+| 类别 | 数量 |
+|:--|:--|
+| 赐糖 6档 + 吃糖 6档 + 附言 4 | 16 |
+| 刺激 V区 L1-L10 | 10 |
+| 释放 V区 | 6 |
+| 捆绑 V区 + 元信息 | 8 |
+| 概率事件 4上下文×4变体 | 16 |
+| 清算模板 | 8 |
+| 破碎模板 | 10 |
+| 糕潮模板 | 8 |
+| 麻木 11部位 | 11 |
+| 涂鸦 5等级 + 等级名 | 31 |
+| 状态警告 + 临界疼痛 | 7 |
+| 区元信息 | 11 |
+
+### 配套文档
+
+| 文件 | 说明 |
+|:--|:--|
+| `DLC协议v1.1扩展需求.md` | 根因分析 + 叙事路径对照 + 装配缺口 + activate缺口 + 数值记账清单 |
+| `CHANGELOG.md` | 本文件 |
+| `VERSION` | "2.6.0" |
+
+### 文件清单
+
+```
+数字生命卡_v2.6.0/
+├── skill.md                         ← DLC Skill 入口
+├── dlc/                             ← DLC Protocol v2.3.1 引擎
+├── cards/
+│   ├── demo-l3/                     ← 记忆精灵 demo 卡
+│   └── soli-v3/                     ← Soli 卡片（DLC JSON 版）
+│       ├── card.json
+│       ├── identity/    (3 JSON)
+│       ├── body/        (2 JSON)
+│       ├── engine/      (4 JSON，narratives.json 含 142 条原版叙事)
+│       ├── behavior/    (1 JSON)
+│       ├── interaction/ (2 JSON)
+│       ├── memory/      (1 JSON)
+│       └── vault/       (1 JSON)
+├── scripts/soul_sense.py            ← 命令分发器
+├── MEMORY/chatlog.py                ← 对话日志
+├── DLC协议v1.1扩展需求.md           ← 核心交付物
+├── CHANGELOG.md
+└── VERSION
+```
