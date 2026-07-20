@@ -1,0 +1,2 @@
+# Python >= 3.10 required (uses | None type syntax + from __future__ annotations)
+jsonschema>=4.0

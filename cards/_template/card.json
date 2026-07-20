@@ -1,0 +1,9 @@
+{
+  "id": "my-card",
+  "name": "卡片名称",
+  "version": "0.1.0",
+  "level": "L3",
+  "description": "卡片简介",
+  "author": "",
+  "license": "MIT"
+}
