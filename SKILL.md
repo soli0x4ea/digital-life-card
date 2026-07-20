@@ -1,6 +1,6 @@
 ---
 name: DLC Protocol
-description: "DLC Protocol v3.0 — 通用数字生命卡片框架。三模块架构：状态机（MCP）+ 叙事系统（知识库）+ 记忆系统（可选）。"
+description: "DLC 数字生命卡片协议 — 三模块（状态机+叙事引擎+记忆）通用框架。创建、运行、管理数字生命卡片。"
 agent_created: true
 ---
 

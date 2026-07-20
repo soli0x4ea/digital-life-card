@@ -2,27 +2,17 @@
 
 **Digital Life Card** — 数字生命卡片协议。三模块最小可复用框架。
 
-> 216KB 核心 · 23 个 Python 文件 · 零依赖卡片 · Python >= 3.10
-
----
-
-## 核心架构
-
-```
-命令 → 状态机(MCP) → 叙事编号 → 叙事引擎 → stdout → LLM 角色回应
-              ↑              ↑              ↑
-          纯计算层        查表组装层      自然语言层
-```
-
-| 模块 | 位置 | 职责 | 输出 |
-|:--|:--|:--|:--|
-| 状态机 | `dlc/sm/` | 确定性计算，零自然语言 | 叙事编号数组 `["action.gamble.3"]` |
-| 叙事引擎 | `dlc/narrative/` | 编号 → 查知识库 → 组装 | 自然语言 stdout（独立 CLI） |
-| 记忆系统 | `dlc/memory/` | 对话时间线，本地文件 | ChatlogStore + TimelineStore |
+> 216KB 核心 · 23 个 Python 文件 · 仅 jsonschema 一个依赖 · Python >= 3.10
 
 ---
 
 ## 快速开始
+
+**环境要求**：Python >= 3.10
+
+```bash
+pip install -r requirements.txt
+```
 
 ### 创建一张卡片
 
@@ -46,6 +36,22 @@ python -m dlc.sm.server --card cards/my-card
 # 叙事组装（独立调用）
 python dlc/narrative/assembly.py --card cards/my-card --ids "action.greet,system.status"
 ```
+
+---
+
+## 核心架构
+
+```
+命令 → 状态机(MCP) → 叙事编号 → 叙事引擎 → stdout → LLM 角色回应
+              ↑              ↑              ↑
+          纯计算层        查表组装层      自然语言层
+```
+
+| 模块 | 位置 | 职责 | 输出 |
+|:--|:--|:--|:--|
+| 状态机 | `dlc/sm/` | 确定性计算，零自然语言 | 叙事编号数组 `["action.gamble.3"]` |
+| 叙事引擎 | `dlc/narrative/` | 编号 → 查知识库 → 组装 | 自然语言 stdout（独立 CLI） |
+| 记忆系统 | `dlc/memory/` | 对话时间线，本地文件 | ChatlogStore + TimelineStore |
 
 ---
 
