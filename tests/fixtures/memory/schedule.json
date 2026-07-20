@@ -1,8 +1,0 @@
-{
-  "tasks": [
-    {"id": "state_decay", "type": "state_decay", "interval_ticks": 10},
-    {"id": "memory_consolidate", "type": "memory_consolidate", "interval_ticks": 100},
-    {"id": "flag_cleanup", "type": "flag_cleanup", "interval_ticks": 50},
-    {"id": "passive_pulse", "type": "passive_action", "interval_ticks": 30, "action": "passive_pulse"}
-  ]
-}
