@@ -4,6 +4,25 @@
 
 ---
 
+## v3.0.8 — 去 Soli 化：清理所有专属命名残留 (2026-07-20)
+
+### 修复
+
+- **编号示例全面通用化**：`engine.py`/`assembly.py`/`server.py`/`README.md` 中所有 docstring/注释/示例
+  - `action.gamble.3` → `action.act.3`，`boundary.ecstasy.v` → `boundary.timeout.a`
+  - `threshold.pleasure_high` → `threshold.hp_low`
+  - 命令示例 `"gamble"/"relieve"/"numb"` → `"act"/"move"/"use"`
+  - 参数示例 `{"token": 1}` → `{"count": 2}`
+- **`engine.py` 删除 Soli 死代码**：`_TRI_VALUES` / `_TRI_LABELS`（pain/shame/pleasure 三值，定义后从未使用）
+- **`engine.py` `_threshold_id` 通用化**：移除硬编码的 `narr_ecstasy_/soul_break_/clearing_` 边界事件前缀，改为通用 `narr_` → `threshold.*` 映射
+- **`engine.py` 参数提取通用化**：`params.get("token", 1)` → `params.get("count", 1)`
+
+### 保留
+
+- `CHANGELOG.md` 历史版本记录中的 Soli 命名（属于正常版本轨迹）
+
+---
+
 ## v3.0.7 — Python 3.9 兼容 + 模板充实 (2026-07-20)
 
 ### 修复

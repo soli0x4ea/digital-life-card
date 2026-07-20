@@ -33,7 +33,7 @@ class NarrativeAssembly:
         """给定叙事编号数组，组装完整 stdout 文本。
 
         Args:
-            narrative_ids: 编号列表，如 ["action.gamble.3", "threshold.pleasure_high"]
+            narrative_ids: 编号列表，如 ["action.act.3", "threshold.hp_low"]
 
         Returns:
             组装后的自然语言文本，LLM 可直接消费。
@@ -83,9 +83,9 @@ class NarrativeAssembly:
         """查表：编号 → 文本。
 
         v3.0.2 编号域：
-          action.{cmd_id}.{level}         — 动作叙事，如 action.gamble.3
-          threshold.{event_id}            — 阈值触发，如 threshold.pleasure_high
-          boundary.{event_id}.{variant?}  — 边界事件，如 boundary.ecstasy.v
+          action.{cmd_id}.{level}         — 动作叙事，如 action.act.3
+          threshold.{event_id}            — 阈值触发，如 threshold.hp_low
+          boundary.{event_id}.{variant?}  — 边界事件，如 boundary.overflow.a
           emergence.{type}                — 涌现叙事
           system.{subtype}                — 系统事件
 
@@ -136,8 +136,8 @@ class NarrativeAssembly:
         """动作叙事查表。
 
         编号支持两种格式：
-          action.cmd_id.level          — 2段，无 variant（如 action.gamble.3）
-          action.cmd_id.variant.level  — 3段，有 variant（如 action.gamble.v.3）
+          action.cmd_id.level          — 2段，无 variant（如 action.act.3）
+          action.cmd_id.variant.level  — 3段，有 variant（如 action.act.a.3）
 
         查找路径：
           1. templates/[cmd_id].json → STIMULATE[level]
@@ -181,7 +181,7 @@ class NarrativeAssembly:
         legacy = self._templates.get("_legacy", {})
         if legacy:
             cmd_assembly = legacy.get("command_assembly", {})
-            # 先精确匹配，再试 cmd_ 前缀（如 gamble → cmd_gamble）
+            # 先精确匹配，再试 cmd_ 前缀（如 act → cmd_act）
             cmd_data = cmd_assembly.get(cmd_id)
             if cmd_data is None:
                 cmd_data = cmd_assembly.get(f"cmd_{cmd_id}")
@@ -238,7 +238,7 @@ class NarrativeAssembly:
                         texts.append(matched)
 
                 elif op == "cond":
-                    # cond op with "if" array (e.g. candy_eat)
+                    # cond op with "if" array
                     if level_int is not None:
                         conditions = step.get("if", [])
                         all_true = True
@@ -340,7 +340,7 @@ class NarrativeAssembly:
         event_id = parts[0]
         variant = parts[1] if len(parts) > 1 else None
 
-        # ── variant 后缀检测（boundary.soul_break_v → event_id=soul_break, variant=v）──
+        # ── variant 后缀检测（boundary.overflow_a → event_id=overflow, variant=a）──
         for suffix in ("_v", "_a", "_u"):
             if variant is None and event_id.endswith(suffix):
                 event_id = event_id[: -len(suffix)]
@@ -385,8 +385,8 @@ class NarrativeAssembly:
     def _map_legacy_event_id(self, event_id: str, variant, leg_events: dict) -> str | None:
         """将新格式事件 ID 映射到旧格式。
 
-        threshold.pleasure_high → narr_status_warn_pleasure_high
-        boundary.ecstasy → narr_ecstasy_v_* (variant needed)
+        threshold.hp_low → narr_status_warn_hp_low
+        boundary.overflow → narr_overflow_v_* (variant needed)
         """
         # threshold.xxx_yyy → narr_status_warn_xxx_yyy
         candidates = [

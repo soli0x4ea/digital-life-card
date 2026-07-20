@@ -4,16 +4,16 @@
 
 Usage:
     engine = StateMachineEngine(card_path="cards/my-card")
-    result = engine.execute("gamble", {"token": 1})
-    # → {"narrative_ids": ["action.gamble.3", "boundary.ecstasy.v"],
+    result = engine.execute("act", {"count": 2})
+    # → {"narrative_ids": ["action.act.2", "threshold.energy_low"],
     #     "state_diff": {...}, "flags": {...}}
 
 编号格式: <domain>.<type>[.<variant>][.<level>]
   action.ping          — 动作，无等级
-  action.gamble.3      — 动作，强度 3 级
-  action.gamble.v.3    — 动作，v 区，强度 3 级
-  threshold.pain_high  — 阈值事件
-  boundary.ecstasy.v   — 边界事件，v 区
+  action.act.3         — 动作，强度 3 级
+  action.act.a.3       — 动作，a 区，强度 3 级
+  threshold.hp_low     — 阈值事件
+  boundary.timeout.a   — 边界事件，a 区
   system.status        — 系统元信息
 """
 from __future__ import annotations
@@ -36,10 +36,6 @@ from dlc.interaction import (
     match_command, execute_command, parse_input,
     CommandLoader, CommandSet,
 )
-
-# Tri-value labels for state diff
-_TRI_VALUES = ("pain", "shame", "pleasure")
-_TRI_LABELS = {"pain": "疼痛", "shame": "羞耻", "pleasure": "快感"}
 
 
 class StateMachineEngine:
@@ -80,8 +76,8 @@ class StateMachineEngine:
         """执行命令，返回叙事编号 + 状态变更。
 
         Args:
-            command: 命令 ID（如 "gamble"）
-            params: 可选参数（如 {"token": 1}）
+            command: 命令 ID（如 "act"）
+            params: 可选参数（如 {"count": 2}）
 
         Returns:
             {"narrative_ids": [...], "state_diff": {...}, "flags": {...},
@@ -123,8 +119,7 @@ class StateMachineEngine:
 
             # 4. Extract intensity
             intensity = float(params.get("intensity",
-                             params.get("count",
-                             params.get("token", 1))))
+                             params.get("count", 1)))
 
             # 5. Apply effects
             entity = self._get_or_create_entity(self._get_primary_entity_id())
@@ -343,24 +338,17 @@ class StateMachineEngine:
     def _threshold_id(event_id: str) -> str:
         """Classify and clean threshold event IDs.
 
-        Mapping:
+        Legacy prefix handling:
           narr_status_warn_* → threshold.*   (warning thresholds)
-          narr_ecstasy_*     → boundary.*    (boundary events)
-          narr_soul_break_*  → boundary.*
-          narr_clearing_*    → boundary.*
+          narr_*             → threshold.*   (generic strip prefix)
         """
         eid = event_id
-
-        # Boundary events (lifecycle)
-        for prefix in ("narr_ecstasy_", "narr_soul_break_", "narr_clearing_"):
-            if eid.startswith(prefix):
-                return f"boundary.{eid[len('narr_'):]}"
 
         # Threshold warnings
         if eid.startswith("narr_status_warn_"):
             return f"threshold.{eid[len('narr_status_warn_'):]}"
 
-        # Unknown: strip narr_ prefix, keep as-is domain
+        # Generic: strip narr_ prefix
         if eid.startswith("narr_"):
             return f"threshold.{eid[len('narr_'):]}"
 

@@ -147,9 +147,9 @@ def _handle_list(req_id) -> dict:
                 "type": "object",
                 "properties": {
                     "command": {"type": "string",
-                                 "description": "命令 ID（如 gamble/relieve/numb）"},
+                                 "description": "命令 ID（如 act/move/use）"},
                     "params": {"type": "object",
-                                "description": "可选参数（如 {\"token\": 1}）"},
+                                "description": "可选参数（如 {\"count\": 2}）"},
                 },
                 "required": ["command"],
             },

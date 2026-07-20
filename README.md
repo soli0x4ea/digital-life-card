@@ -49,7 +49,7 @@ python dlc/narrative/assembly.py --card cards/my-card --ids "action.greet,system
 
 | 模块 | 位置 | 职责 | 输出 |
 |:--|:--|:--|:--|
-| 状态机 | `dlc/sm/` | 确定性计算，零自然语言 | 叙事编号数组 `["action.gamble.3"]` |
+| 状态机 | `dlc/sm/` | 确定性计算，零自然语言 | 叙事编号数组 `["action.act.3"]` |
 | 叙事引擎 | `dlc/narrative/` | 编号 → 查知识库 → 组装 | 自然语言 stdout（独立 CLI） |
 | 记忆系统 | `dlc/memory/` | 对话时间线，本地文件 | ChatlogStore + TimelineStore |
 
